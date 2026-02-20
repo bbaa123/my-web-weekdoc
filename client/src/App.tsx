@@ -135,7 +135,7 @@ function App() {
         <section className="max-w-7xl mx-auto px-6 pt-24 pb-32 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-sm font-bold mb-8">
             <Activity size={16} />
-            <span>New: 바이브코딩 환경 2026</span>
+            <span>바이브코딩 테스트</span>
           </div>
 
           <h1 className="text-6xl md:text-7xl font-black text-slate-900 tracking-tight leading-[1.1] mb-8">
