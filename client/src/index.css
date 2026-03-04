@@ -1,9 +1,10 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+KR:wght@100..900&display=swap');
 
 :root {
-  font-family: "Noto Sans KR", sans-serif;
-  --font-sans: "Noto Sans KR", sans-serif;
+  font-family: "Inter", "Noto Sans KR", sans-serif;
+  --font-sans: "Inter", "Noto Sans KR", sans-serif;
+  line-height: 1.75;
 }
 
 body {
@@ -11,6 +12,39 @@ body {
   background-color: #f8fafc; /* Slate 50 */
   color: #0f172a; /* Slate 900 */
   -webkit-font-smoothing: antialiased;
+  line-height: 1.75;
+}
+
+/* Weekly report: custom range slider thumb styling */
+input[type='range'].wr-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 12px;
+  background: transparent;
+}
+input[type='range'].wr-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #6366f1;
+  cursor: pointer;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  transition: transform 0.1s ease;
+}
+input[type='range'].wr-slider::-webkit-slider-thumb:active {
+  transform: scale(1.2);
+}
+input[type='range'].wr-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #6366f1;
+  cursor: pointer;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
 }
 
 /* Custom Prose Styles for Markdown */

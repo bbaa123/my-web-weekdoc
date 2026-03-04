@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Activity, Zap, ArrowRight, Database, FileCode, BookOpen, Layers, Layout, Code } from 'lucide-react';
+import { Activity, Zap, ArrowRight, Database, FileCode, BookOpen, Layers, Layout, Code, ClipboardList, LayoutDashboard } from 'lucide-react';
 import { LoadingOverlay } from './core/loading';
 import { DocumentViewer } from './components/DocumentViewer';
 import { checkDatabaseConnection } from './domains/system/api';
 import { toast } from './core/utils/toast';
+import { MemberReportPage, AdminDashboardPage } from './domains/weeklyreport';
 
 interface DocumentConfig {
   title: string;
@@ -83,6 +85,12 @@ function App() {
         filePath={documentViewer.filePath}
       />
 
+      <Routes>
+        <Route path="/report" element={<MemberReportPage />} />
+        <Route path="/admin" element={<AdminDashboardPage />} />
+        <Route
+          path="*"
+          element={
       <div className="min-h-screen bg-mesh selection:bg-indigo-100">
         {/* 1. 네비게이션 - 플로팅 스타일 */}
         <nav className="sticky top-0 z-50 px-6 py-4">
@@ -107,6 +115,14 @@ function App() {
                 <BookOpen size={16} />
                 개발 가이드
               </button>
+              <Link to="/report" className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
+                <ClipboardList size={16} />
+                주간 보고서
+              </Link>
+              <Link to="/admin" className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
+                <LayoutDashboard size={16} />
+                관리자 현황
+              </Link>
             </div>
 
             <div className="flex items-center gap-4">
@@ -171,6 +187,20 @@ function App() {
               프로젝트 시작하기
               <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </button>
+            <Link
+              to="/report"
+              className="w-full sm:w-auto px-10 py-4 bg-white text-slate-800 text-lg font-bold rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:bg-slate-50 transition-all flex items-center justify-center gap-2 group"
+            >
+              <ClipboardList size={20} />
+              주간 보고서 작성
+            </Link>
+            <Link
+              to="/admin"
+              className="w-full sm:w-auto px-10 py-4 bg-white text-slate-800 text-lg font-bold rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:bg-slate-50 transition-all flex items-center justify-center gap-2 group"
+            >
+              <LayoutDashboard size={20} />
+              관리자 현황
+            </Link>
           </div>
         </section>
 
@@ -223,6 +253,9 @@ function App() {
           </div>
         </footer>
       </div>
+          }
+        />
+      </Routes>
     </>
   );
 }
