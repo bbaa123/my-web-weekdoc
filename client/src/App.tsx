@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Activity, Zap, ArrowRight, Database, FileCode, BookOpen, Layers, Layout, Code, ClipboardList, LayoutDashboard } from 'lucide-react';
+import { Activity, Zap, ArrowRight, Database, FileCode, BookOpen, Layers, Layout, Code, ClipboardList, LayoutDashboard, CalendarDays } from 'lucide-react';
 import { LoadingOverlay } from './core/loading';
 import { DocumentViewer } from './components/DocumentViewer';
 import { checkDatabaseConnection } from './domains/system/api';
 import { toast } from './core/utils/toast';
-import { MemberReportPage, AdminDashboardPage } from './domains/weeklyreport';
+import { MemberReportPage, AdminDashboardPage, WeeklySyncPage } from './domains/weeklyreport';
 
 interface DocumentConfig {
   title: string;
@@ -88,6 +88,7 @@ function App() {
       <Routes>
         <Route path="/report" element={<MemberReportPage />} />
         <Route path="/admin" element={<AdminDashboardPage />} />
+        <Route path="/weekly-sync" element={<WeeklySyncPage />} />
         <Route
           path="*"
           element={
@@ -122,6 +123,10 @@ function App() {
               <Link to="/admin" className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
                 <LayoutDashboard size={16} />
                 관리자 현황
+              </Link>
+              <Link to="/weekly-sync" className="flex items-center gap-1.5 hover:text-orange-500 transition-colors font-bold text-orange-500">
+                <CalendarDays size={16} />
+                Weekly Sync
               </Link>
             </div>
 
@@ -200,6 +205,13 @@ function App() {
             >
               <LayoutDashboard size={20} />
               관리자 현황
+            </Link>
+            <Link
+              to="/weekly-sync"
+              className="w-full sm:w-auto px-10 py-4 bg-orange-500 text-white text-lg font-bold rounded-2xl shadow-lg shadow-orange-200 hover:shadow-xl hover:bg-orange-600 transition-all flex items-center justify-center gap-2 group"
+            >
+              <CalendarDays size={20} />
+              Weekly Sync
             </Link>
           </div>
         </section>
