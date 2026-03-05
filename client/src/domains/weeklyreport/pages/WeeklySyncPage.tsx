@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  X,
 } from 'lucide-react';
 
 // ────────────────────────────────────────────
@@ -256,15 +257,14 @@ function PriorityDot({ priority }: { priority: SyncPriority }) {
   );
 }
 
+function getProgressColor(value: number): string {
+  if (value <= 30) return 'bg-red-500';
+  if (value <= 70) return 'bg-yellow-400';
+  return 'bg-emerald-500';
+}
+
 function ProgressBar({ value }: { value: number }) {
-  const color =
-    value === 100
-      ? 'bg-emerald-500'
-      : value >= 70
-        ? 'bg-orange-500'
-        : value >= 40
-          ? 'bg-blue-500'
-          : 'bg-slate-300';
+  const color = getProgressColor(value);
   return (
     <div className="flex items-center gap-2">
       <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -281,12 +281,300 @@ function ProgressBar({ value }: { value: number }) {
 type TabKey = 'all' | 'myteam' | 'flagged';
 
 // ────────────────────────────────────────────
+// New Update Modal
+// ────────────────────────────────────────────
+
+type NewEntryCategory = '일반업무' | '프로젝트' | '기타';
+
+interface NewEntryForm {
+  authorName: string;
+  category: NewEntryCategory;
+  thisWeek: string;
+  nextWeek: string;
+  progress: number;
+  status: SyncStatus;
+  priority: SyncPriority;
+  hasIssue: boolean;
+  issueText: string;
+}
+
+const DEFAULT_NEW_ENTRY: NewEntryForm = {
+  authorName: '',
+  category: '일반업무',
+  thisWeek: '',
+  nextWeek: '',
+  progress: 0,
+  status: 'IN_PROGRESS',
+  priority: '중',
+  hasIssue: false,
+  issueText: '',
+};
+
+const CATEGORY_OPTIONS: NewEntryCategory[] = ['일반업무', '프로젝트', '기타'];
+
+const STATUS_OPTIONS: { value: SyncStatus; label: string }[] = [
+  { value: 'IN_PROGRESS', label: 'IN PROGRESS' },
+  { value: 'COMPLETED', label: 'COMPLETED' },
+  { value: 'PENDING', label: 'PENDING' },
+  { value: 'DELAYED', label: 'DELAYED' },
+];
+
+const PRIORITY_OPTIONS: { value: SyncPriority; label: string; color: string; active: string }[] = [
+  { value: '상', label: 'HIGH', color: 'border-red-200 text-red-600', active: 'bg-red-500 text-white border-red-500' },
+  { value: '중', label: 'MED', color: 'border-amber-200 text-amber-600', active: 'bg-amber-400 text-white border-amber-400' },
+  { value: '하', label: 'LOW', color: 'border-emerald-200 text-emerald-600', active: 'bg-emerald-500 text-white border-emerald-500' },
+];
+
+function NewUpdateModal({ onClose }: { onClose: () => void }) {
+  const [form, setForm] = useState<NewEntryForm>(DEFAULT_NEW_ENTRY);
+
+  const update = <K extends keyof NewEntryForm>(key: K, value: NewEntryForm[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const progressColor = getProgressColor(form.progress);
+  const progressColorText =
+    form.progress <= 30 ? 'text-red-500' : form.progress <= 70 ? 'text-yellow-500' : 'text-emerald-500';
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Modal card */}
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+          <div>
+            <h2 className="text-base font-black text-slate-900">주간보고 작성</h2>
+            <p className="text-xs text-slate-400 mt-0.5">2026년 3월 1주차</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
+          {/* Author */}
+          <div>
+            <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+              MEMBER
+            </label>
+            <input
+              type="text"
+              placeholder="이름을 입력하세요"
+              value={form.authorName}
+              onChange={(e) => update('authorName', e.target.value)}
+              required
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all"
+            />
+          </div>
+
+          {/* Category */}
+          <div>
+            <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+              CATEGORY
+            </label>
+            <div className="flex gap-2">
+              {CATEGORY_OPTIONS.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => update('category', cat)}
+                  className={`flex-1 py-2.5 text-sm font-semibold rounded-xl border transition-all ${
+                    form.category === cat
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-sm shadow-orange-200'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-orange-300 hover:text-orange-500'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* This Week */}
+          <div>
+            <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+              THIS WEEK
+            </label>
+            <textarea
+              placeholder="이번 주 주요 업무 내용을 작성하세요"
+              value={form.thisWeek}
+              onChange={(e) => update('thisWeek', e.target.value)}
+              rows={3}
+              required
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all resize-none leading-relaxed"
+            />
+          </div>
+
+          {/* Next Week */}
+          <div>
+            <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+              NEXT WEEK
+            </label>
+            <textarea
+              placeholder="다음 주 계획을 작성하세요"
+              value={form.nextWeek}
+              onChange={(e) => update('nextWeek', e.target.value)}
+              rows={3}
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all resize-none leading-relaxed"
+            />
+          </div>
+
+          {/* Progress */}
+          <div>
+            <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+              PROGRESS
+            </label>
+            {/* Preview card with progress bar at bottom */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+              <div className="px-4 py-3 flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-700">진도율</span>
+                <span className={`text-sm font-black ${progressColorText}`}>{form.progress}%</span>
+              </div>
+              {/* Thin progress bar at card bottom */}
+              <div className="h-1.5 bg-slate-100">
+                <div
+                  className={`h-full ${progressColor} transition-all`}
+                  style={{ width: `${form.progress}%` }}
+                />
+              </div>
+            </div>
+            {/* Slider */}
+            <div className="mt-2 px-1">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={form.progress}
+                onChange={(e) => update('progress', Number(e.target.value))}
+                className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, ${form.progress <= 30 ? '#ef4444' : form.progress <= 70 ? '#facc15' : '#10b981'} ${form.progress}%, #e2e8f0 ${form.progress}%)`,
+                }}
+              />
+              <div className="flex justify-between text-[10px] text-slate-400 mt-1 font-medium">
+                <span>0%</span>
+                <span className="text-red-400">30%</span>
+                <span className="text-yellow-500">70%</span>
+                <span className="text-emerald-500">100%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Status + Priority row */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Status */}
+            <div>
+              <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+                STATUS
+              </label>
+              <select
+                value={form.status}
+                onChange={(e) => update('status', e.target.value as SyncStatus)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all cursor-pointer"
+              >
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Priority */}
+            <div>
+              <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+                PRIORITY
+              </label>
+              <div className="flex gap-1.5">
+                {PRIORITY_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => update('priority', opt.value)}
+                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all ${
+                      form.priority === opt.value ? opt.active : `bg-white ${opt.color} hover:opacity-70`
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Issue toggle + text */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase">
+                ISSUE / 특이사항
+              </label>
+              <button
+                type="button"
+                onClick={() => update('hasIssue', !form.hasIssue)}
+                className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-all ${
+                  form.hasIssue
+                    ? 'bg-red-100 text-red-600 border border-red-200'
+                    : 'bg-slate-100 text-slate-500 border border-slate-200'
+                }`}
+              >
+                {form.hasIssue ? '이슈 있음' : '이슈 없음'}
+              </button>
+            </div>
+            {form.hasIssue && (
+              <textarea
+                placeholder="이슈 또는 특이사항을 입력하세요"
+                value={form.issueText}
+                onChange={(e) => update('issueText', e.target.value)}
+                rows={2}
+                className="w-full px-4 py-2.5 rounded-xl border border-red-200 bg-red-50 text-slate-900 text-sm placeholder:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400 transition-all resize-none"
+              />
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-3 pt-1 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              className="flex items-center gap-2 px-6 py-2.5 bg-orange-500 text-white text-sm font-bold rounded-xl hover:bg-orange-600 active:scale-95 transition-all shadow-sm shadow-orange-200"
+            >
+              <Plus size={14} />
+              보고서 등록
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────
 // Main Page
 // ────────────────────────────────────────────
 
 export function WeeklySyncPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showNewUpdateModal, setShowNewUpdateModal] = useState(false);
 
   const totalCount = SYNC_DATA.length;
   const completedCount = SYNC_DATA.filter((e) => e.status === 'COMPLETED').length;
@@ -310,6 +598,7 @@ export function WeeklySyncPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex">
+      {showNewUpdateModal && <NewUpdateModal onClose={() => setShowNewUpdateModal(false)} />}
       {/* ── Sidebar ── */}
       <aside className="w-16 bg-white border-r border-slate-200 flex flex-col items-center py-6 gap-6 shrink-0">
         {/* Logo mark */}
@@ -348,7 +637,7 @@ export function WeeklySyncPage() {
         <header className="h-14 bg-white border-b border-slate-200 flex items-center px-6 gap-4 shrink-0">
           {/* Brand */}
           <div className="flex items-center gap-2 mr-4">
-            <span className="text-lg font-black text-slate-900 tracking-tight">CorpSync</span>
+            <span className="text-lg font-black text-slate-900 tracking-tight">VNTG</span>
             <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
               Weekly
             </span>
@@ -398,7 +687,10 @@ export function WeeklySyncPage() {
                 2026년 3월 1주차 &middot; 총 {totalCount}명 참여
               </p>
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-bold rounded-xl hover:bg-orange-600 active:scale-95 transition-all shadow-sm shadow-orange-200">
+            <button
+              onClick={() => setShowNewUpdateModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-bold rounded-xl hover:bg-orange-600 active:scale-95 transition-all shadow-sm shadow-orange-200"
+            >
               <Plus size={15} />
               New Update
             </button>
