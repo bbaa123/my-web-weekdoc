@@ -6,7 +6,9 @@ import { LoadingOverlay } from './core/loading';
 import { DocumentViewer } from './components/DocumentViewer';
 import { checkDatabaseConnection } from './domains/system/api';
 import { toast } from './core/utils/toast';
-import { MemberReportPage, AdminDashboardPage, WeeklySyncPage } from './domains/weeklyreport';
+import { MemberReportPage, AdminDashboardPage, WeeklySyncPage, DashboardPage } from './domains/weeklyreport';
+import { LoginPage, RegisterPage } from './domains/auth';
+import { PrivateRoute } from './core/auth/PrivateRoute';
 
 interface DocumentConfig {
   title: string;
@@ -86,9 +88,24 @@ function App() {
       />
 
       <Routes>
-        <Route path="/report" element={<MemberReportPage />} />
-        <Route path="/admin" element={<AdminDashboardPage />} />
-        <Route path="/weekly-sync" element={<WeeklySyncPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/report"
+          element={<PrivateRoute><MemberReportPage /></PrivateRoute>}
+        />
+        <Route
+          path="/dashboard"
+          element={<PrivateRoute><DashboardPage /></PrivateRoute>}
+        />
+        <Route
+          path="/admin"
+          element={<PrivateRoute><AdminDashboardPage /></PrivateRoute>}
+        />
+        <Route
+          path="/weekly-sync"
+          element={<PrivateRoute><WeeklySyncPage /></PrivateRoute>}
+        />
         <Route
           path="*"
           element={

@@ -1,20 +1,21 @@
 /**
- * Auth Store (Skeleton)
- *
- * 인증 상태 관리
- *
- * @example
- * const { user, login, logout } = useAuthStore();
+ * Auth Store
+ * 인증 상태 관리 (Zustand + persist)
  */
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { apiClient } from '@/core/api/client';
 
-interface User {
-  id: string;
+export interface User {
+  id: number;
   email: string;
   name: string;
-  // TODO: 추가 사용자 정보
+  department: string;
+  role: string;
+  position: '매니저' | '팀장' | '센터장';
+  is_admin: boolean;
+  is_active: boolean;
 }
 
 interface AuthState {
@@ -22,10 +23,20 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
 
-  // Actions
   login: (email: string, password: string) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   setUser: (user: User) => void;
+}
+
+export interface RegisterData {
+  name: string;
+  department: string;
+  email: string;
+  role: string;
+  position: '매니저' | '팀장' | '센터장';
+  is_admin: boolean;
+  password: string;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -36,15 +47,24 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
 
       login: async (email: string, password: string) => {
-        // TODO: API 호출로 로그인 처리
-        // const response = await apiClient.post('/auth/login', { email, password });
-        // set({ user: response.data.user, token: response.data.token, isAuthenticated: true });
+        const response = await apiClient.post<{ access_token: string; user: User }>(
+          '/v1/auth/login',
+          { email, password }
+        );
+        const { access_token, user } = response.data;
+        set({ user, token: access_token, isAuthenticated: true });
+      },
 
-        console.log('Login called with:', email, password);
+      register: async (data: RegisterData) => {
+        const response = await apiClient.post<{ access_token: string; user: User }>(
+          '/v1/auth/register',
+          data
+        );
+        const { access_token, user } = response.data;
+        set({ user, token: access_token, isAuthenticated: true });
       },
 
       logout: () => {
-        // TODO: 토큰 삭제, 상태 초기화
         set({ user: null, token: null, isAuthenticated: false });
       },
 
@@ -53,7 +73,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'auth-storage', // localStorage key
+      name: 'auth-storage',
     }
   )
 );

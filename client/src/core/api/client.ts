@@ -54,11 +54,18 @@ class ApiClient {
           LoadingManager.show();
         }
 
-        // TODO: 인증 토큰 추가
-        // const token = localStorage.getItem('auth_token');
-        // if (token) {
-        //   config.headers.Authorization = `Bearer ${token}`;
-        // }
+        // JWT 인증 토큰 추가
+        try {
+          const authStorage = localStorage.getItem('auth-storage');
+          if (authStorage) {
+            const { state } = JSON.parse(authStorage);
+            if (state?.token) {
+              config.headers.Authorization = `Bearer ${state.token}`;
+            }
+          }
+        } catch {
+          // ignore parse errors
+        }
 
         return config;
       },
@@ -85,10 +92,11 @@ class ApiClient {
 
         // 특정 상태 코드별 추가 처리
         if (ApiErrorHandler.isAuthError(error)) {
-          // TODO: 인증 에러 처리
-          // - 로그인 페이지로 리다이렉트
-          // - 또는 토큰 갱신 시도
-          console.warn('🔐 인증 에러:', errorData.message);
+          // 인증 에러: 로컬 스토리지 초기화 후 로그인 페이지로 이동
+          localStorage.removeItem('auth-storage');
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
         }
 
         // 변환된 에러 데이터 반환
