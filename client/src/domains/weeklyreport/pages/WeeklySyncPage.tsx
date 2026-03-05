@@ -316,13 +316,14 @@ function ProgressBar({ value }: { value: number }) {
 type TabKey = 'all' | 'myteam' | 'flagged';
 
 // ────────────────────────────────────────────
-// New Update Modal
+// New Update Modal (Multi-row)
 // ────────────────────────────────────────────
 
 type NewEntryCategory = '일반업무' | '프로젝트' | '기타';
 
-interface NewEntryForm {
-  authorName: string;
+interface EntryRow {
+  rowId: string;
+  fromLastWeek: boolean;
   category: NewEntryCategory;
   company: Company | '';
   taskType: TaskType | '';
@@ -335,21 +336,6 @@ interface NewEntryForm {
   hasIssue: boolean;
   issueText: string;
 }
-
-const DEFAULT_NEW_ENTRY: NewEntryForm = {
-  authorName: '',
-  category: '일반업무',
-  company: '',
-  taskType: '',
-  projectName: '',
-  thisWeek: '',
-  nextWeek: '',
-  progress: 0,
-  status: 'IN_PROGRESS',
-  priority: '중',
-  hasIssue: false,
-  issueText: '',
-};
 
 const CATEGORY_OPTIONS: NewEntryCategory[] = ['일반업무', '프로젝트', '기타'];
 
@@ -366,62 +352,390 @@ const PRIORITY_OPTIONS: { value: SyncPriority; label: string; color: string; act
   { value: '하', label: 'LOW', color: 'border-emerald-200 text-emerald-600', active: 'bg-emerald-500 text-white border-emerald-500' },
 ];
 
+function makeDefaultRow(): EntryRow {
+  return {
+    rowId: `row-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    fromLastWeek: false,
+    category: '일반업무',
+    company: '',
+    taskType: '',
+    projectName: '',
+    thisWeek: '',
+    nextWeek: '',
+    progress: 0,
+    status: 'IN_PROGRESS',
+    priority: '중',
+    hasIssue: false,
+    issueText: '',
+  };
+}
+
+function EntryRowCard({
+  row,
+  index,
+  total,
+  onUpdate,
+  onRemove,
+}: {
+  row: EntryRow;
+  index: number;
+  total: number;
+  onUpdate: (rowId: string, key: keyof EntryRow, value: EntryRow[keyof EntryRow]) => void;
+  onRemove: (rowId: string) => void;
+}) {
+  const up = <K extends keyof EntryRow>(key: K, value: EntryRow[K]) =>
+    onUpdate(row.rowId, key, value);
+
+  const progressColor = getProgressColor(row.progress);
+  const progressColorText =
+    row.progress <= 30 ? 'text-red-500' : row.progress <= 70 ? 'text-yellow-500' : 'text-emerald-500';
+
+  return (
+    <div
+      className={`border rounded-xl p-4 space-y-4 ${
+        row.fromLastWeek
+          ? 'border-amber-200 bg-amber-50/30'
+          : 'border-slate-200 bg-white'
+      }`}
+    >
+      {/* Row header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+            {index + 1}
+          </span>
+          {row.fromLastWeek && (
+            <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
+              지난주 미완료 인계
+            </span>
+          )}
+        </div>
+        {total > 1 && (
+          <button
+            type="button"
+            onClick={() => onRemove(row.rowId)}
+            className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
+      </div>
+
+      {/* Category */}
+      <div>
+        <label className="block text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+          CATEGORY
+        </label>
+        <div className="flex gap-2">
+          {CATEGORY_OPTIONS.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => {
+                up('category', cat);
+                up('company', '');
+                up('taskType', '');
+                up('projectName', '');
+              }}
+              className={`flex-1 py-2 text-sm font-semibold rounded-xl border transition-all ${
+                row.category === cat
+                  ? 'bg-orange-500 text-white border-orange-500 shadow-sm shadow-orange-200'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-orange-300 hover:text-orange-500'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 일반업무: 회사 선택 + 업무 항목 드롭다운 */}
+      {row.category === '일반업무' && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+              회사 선택
+            </label>
+            <div className="relative">
+              <select
+                value={row.company}
+                onChange={(e) => up('company', e.target.value as Company | '')}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all cursor-pointer appearance-none pr-8"
+              >
+                <option value="">회사를 선택하세요</option>
+                {COMPANY_OPTIONS.map((co) => (
+                  <option key={co} value={co}>
+                    {co}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={13}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+              업무 항목
+            </label>
+            <div className="relative">
+              <select
+                value={row.taskType}
+                onChange={(e) => up('taskType', e.target.value as TaskType | '')}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-300 focus:border-teal-400 transition-all cursor-pointer appearance-none pr-8"
+              >
+                <option value="">항목을 선택하세요</option>
+                {TASK_TYPE_OPTIONS.map((tt) => (
+                  <option key={tt} value={tt}>
+                    {tt}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={13}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 프로젝트: 프로젝트명 */}
+      {row.category === '프로젝트' && (
+        <div>
+          <label className="block text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+            프로젝트명
+          </label>
+          <input
+            type="text"
+            placeholder="프로젝트명을 입력하세요"
+            value={row.projectName}
+            onChange={(e) => up('projectName', e.target.value)}
+            className="w-full px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/40 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all"
+          />
+        </div>
+      )}
+
+      {/* This Week */}
+      <div>
+        <label className="block text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+          THIS WEEK
+          {row.fromLastWeek && row.thisWeek && (
+            <span className="ml-2 text-amber-500 normal-case font-normal tracking-normal">
+              ← 지난주 NEXT WEEK 자동 입력
+            </span>
+          )}
+        </label>
+        <textarea
+          placeholder="이번 주 주요 업무 내용을 작성하세요"
+          value={row.thisWeek}
+          onChange={(e) => up('thisWeek', e.target.value)}
+          rows={3}
+          required
+          className={`w-full px-4 py-2.5 rounded-xl border text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all resize-none leading-relaxed ${
+            row.fromLastWeek && row.thisWeek
+              ? 'border-amber-200 bg-amber-50/40 focus:ring-amber-300 focus:border-amber-400'
+              : 'border-slate-200 bg-slate-50 focus:ring-orange-300 focus:border-orange-400'
+          }`}
+        />
+      </div>
+
+      {/* Next Week */}
+      <div>
+        <label className="block text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+          NEXT WEEK
+        </label>
+        <textarea
+          placeholder="다음 주 계획을 작성하세요"
+          value={row.nextWeek}
+          onChange={(e) => up('nextWeek', e.target.value)}
+          rows={2}
+          className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all resize-none leading-relaxed"
+        />
+      </div>
+
+      {/* Progress */}
+      <div>
+        <label className="block text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+          PROGRESS
+        </label>
+        <div className="flex items-center gap-3 mb-1.5">
+          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full ${progressColor} transition-all`}
+              style={{ width: `${row.progress}%` }}
+            />
+          </div>
+          <span className={`text-sm font-black w-10 text-right shrink-0 ${progressColorText}`}>
+            {row.progress}%
+          </span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={row.progress}
+          onChange={(e) => up('progress', Number(e.target.value))}
+          className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+          style={{
+            background: `linear-gradient(to right, ${
+              row.progress <= 30 ? '#ef4444' : row.progress <= 70 ? '#facc15' : '#10b981'
+            } ${row.progress}%, #e2e8f0 ${row.progress}%)`,
+          }}
+        />
+      </div>
+
+      {/* Status + Priority */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+            STATUS
+          </label>
+          <select
+            value={row.status}
+            onChange={(e) => up('status', e.target.value as SyncStatus)}
+            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all cursor-pointer"
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+            PRIORITY
+          </label>
+          <div className="flex gap-1.5">
+            {PRIORITY_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => up('priority', opt.value)}
+                className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all ${
+                  row.priority === opt.value ? opt.active : `bg-white ${opt.color} hover:opacity-70`
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Issue */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="block text-[10px] font-bold tracking-widest text-slate-400 uppercase">
+            ISSUE / 특이사항
+          </label>
+          <button
+            type="button"
+            onClick={() => up('hasIssue', !row.hasIssue)}
+            className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-all ${
+              row.hasIssue
+                ? 'bg-red-100 text-red-600 border border-red-200'
+                : 'bg-slate-100 text-slate-500 border border-slate-200'
+            }`}
+          >
+            {row.hasIssue ? '이슈 있음' : '이슈 없음'}
+          </button>
+        </div>
+        {row.hasIssue && (
+          <textarea
+            placeholder="이슈 또는 특이사항을 입력하세요"
+            value={row.issueText}
+            onChange={(e) => up('issueText', e.target.value)}
+            rows={2}
+            className="w-full px-4 py-2.5 rounded-xl border border-red-200 bg-red-50 text-slate-900 text-sm placeholder:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400 transition-all resize-none"
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function NewUpdateModal({
   onClose,
   onAdd,
+  defaultAuthorName,
+  lastWeekIncomplete,
 }: {
   onClose: () => void;
-  onAdd: (entry: SyncEntry) => void;
+  onAdd: (entries: SyncEntry[]) => void;
+  defaultAuthorName: string;
+  lastWeekIncomplete: SyncEntry[];
 }) {
-  const [form, setForm] = useState<NewEntryForm>(DEFAULT_NEW_ENTRY);
+  const buildRowFromLastWeek = (entry: SyncEntry): EntryRow => ({
+    rowId: `row-lw-${entry.id}`,
+    fromLastWeek: true,
+    category: '일반업무',
+    company: (COMPANY_OPTIONS.includes(entry.company as Company) ? entry.company : '') as Company | '',
+    taskType: (TASK_TYPE_OPTIONS.includes(entry.category as TaskType) ? entry.category : '') as TaskType | '',
+    projectName: '',
+    thisWeek: entry.nextWeek,
+    nextWeek: '',
+    progress: entry.progress < 100 ? entry.progress : 0,
+    status: 'IN_PROGRESS',
+    priority: entry.priority,
+    hasIssue: false,
+    issueText: '',
+  });
 
-  const update = <K extends keyof NewEntryForm>(key: K, value: NewEntryForm[K]) => {
-    setForm((prev) => {
-      const next = { ...prev, [key]: value };
-      if (key === 'category') {
-        next.company = '';
-        next.taskType = '';
-        next.projectName = '';
-      }
-      return next;
-    });
+  const initialRows: EntryRow[] =
+    lastWeekIncomplete.length > 0
+      ? lastWeekIncomplete.map(buildRowFromLastWeek)
+      : [makeDefaultRow()];
+
+  const [authorName, setAuthorName] = useState(defaultAuthorName);
+  const [rows, setRows] = useState<EntryRow[]>(initialRows);
+
+  const updateRow = (rowId: string, key: keyof EntryRow, value: EntryRow[keyof EntryRow]) => {
+    setRows((prev) => prev.map((r) => (r.rowId === rowId ? { ...r, [key]: value } : r)));
   };
 
-  const progressColor = getProgressColor(form.progress);
-  const progressColorText =
-    form.progress <= 30 ? 'text-red-500' : form.progress <= 70 ? 'text-yellow-500' : 'text-emerald-500';
+  const addRow = () => setRows((prev) => [...prev, makeDefaultRow()]);
+
+  const removeRow = (rowId: string) => setRows((prev) => prev.filter((r) => r.rowId !== rowId));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    const categoryLabel =
-      form.category === '일반업무'
-        ? form.taskType || '일반업무'
-        : form.category === '프로젝트'
-        ? form.projectName || '프로젝트'
-        : '기타';
-
-    const companyLabel = form.company || '미지정';
-    const companyColor = form.company ? (COMPANY_COLORS[form.company] ?? 'bg-slate-100 text-slate-600') : 'bg-slate-100 text-slate-600';
     const avatarBg = AVATAR_BG_POOL[Math.floor(Math.random() * AVATAR_BG_POOL.length)];
 
-    const newEntry: SyncEntry = {
-      id: String(Date.now()),
-      authorName: form.authorName,
-      avatarBg,
-      company: companyLabel,
-      companyColor,
-      category: categoryLabel,
-      thisWeek: form.thisWeek,
-      nextWeek: form.nextWeek,
-      progress: form.progress,
-      priority: form.priority,
-      status: form.status,
-      hasIssue: form.hasIssue,
-      issueText: form.hasIssue ? form.issueText : undefined,
-    };
+    const newEntries: SyncEntry[] = rows.map((row) => {
+      const categoryLabel =
+        row.category === '일반업무'
+          ? row.taskType || '일반업무'
+          : row.category === '프로젝트'
+          ? row.projectName || '프로젝트'
+          : '기타';
 
-    onAdd(newEntry);
+      const companyLabel = row.company || '미지정';
+      const companyColor = row.company
+        ? (COMPANY_COLORS[row.company] ?? 'bg-slate-100 text-slate-600')
+        : 'bg-slate-100 text-slate-600';
+
+      return {
+        id: `${Date.now()}-${row.rowId}`,
+        authorName,
+        avatarBg,
+        company: companyLabel,
+        companyColor,
+        category: categoryLabel,
+        thisWeek: row.thisWeek,
+        nextWeek: row.nextWeek,
+        progress: row.progress,
+        priority: row.priority,
+        status: row.status,
+        hasIssue: row.hasIssue,
+        issueText: row.hasIssue ? row.issueText : undefined,
+      };
+    });
+
+    onAdd(newEntries);
     onClose();
   };
 
@@ -433,10 +747,17 @@ function NewUpdateModal({
       {/* Modal card */}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
           <div>
             <h2 className="text-base font-black text-slate-900">주간보고 작성</h2>
-            <p className="text-xs text-slate-400 mt-0.5">2026년 3월 1주차</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              2026년 3월 1주차 · {rows.length}개 항목
+              {lastWeekIncomplete.length > 0 && (
+                <span className="ml-2 text-amber-500">
+                  (지난주 미완료 {lastWeekIncomplete.length}건 자동 인계)
+                </span>
+              )}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -456,240 +777,36 @@ function NewUpdateModal({
             <input
               type="text"
               placeholder="이름을 입력하세요"
-              value={form.authorName}
-              onChange={(e) => update('authorName', e.target.value)}
+              value={authorName}
+              onChange={(e) => setAuthorName(e.target.value)}
               required
               className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all"
             />
           </div>
 
-          {/* Category */}
-          <div>
-            <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
-              CATEGORY
-            </label>
-            <div className="flex gap-2">
-              {CATEGORY_OPTIONS.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => update('category', cat)}
-                  className={`flex-1 py-2.5 text-sm font-semibold rounded-xl border transition-all ${
-                    form.category === cat
-                      ? 'bg-orange-500 text-white border-orange-500 shadow-sm shadow-orange-200'
-                      : 'bg-white text-slate-600 border-slate-200 hover:border-orange-300 hover:text-orange-500'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 일반업무: 회사 선택 + 업무 항목 */}
-          {form.category === '일반업무' && (
-            <>
-              {/* 회사 선택 */}
-              <div>
-                <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
-                  회사 선택
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {COMPANY_OPTIONS.map((co) => (
-                    <button
-                      key={co}
-                      type="button"
-                      onClick={() => update('company', co)}
-                      className={`py-2.5 text-sm font-semibold rounded-xl border transition-all ${
-                        form.company === co
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-200'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-500'
-                      }`}
-                    >
-                      {co}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 업무 항목 */}
-              <div>
-                <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
-                  업무 항목
-                </label>
-                <div className="flex gap-2">
-                  {TASK_TYPE_OPTIONS.map((tt) => (
-                    <button
-                      key={tt}
-                      type="button"
-                      onClick={() => update('taskType', tt)}
-                      className={`flex-1 py-2.5 text-sm font-semibold rounded-xl border transition-all ${
-                        form.taskType === tt
-                          ? 'bg-teal-600 text-white border-teal-600 shadow-sm shadow-teal-200'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-teal-300 hover:text-teal-600'
-                      }`}
-                    >
-                      {tt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* 프로젝트: 프로젝트명 입력 */}
-          {form.category === '프로젝트' && (
-            <div>
-              <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
-                프로젝트명
-              </label>
-              <input
-                type="text"
-                placeholder="프로젝트명을 입력하세요"
-                value={form.projectName}
-                onChange={(e) => update('projectName', e.target.value)}
-                required
-                className="w-full px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50/40 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all"
+          {/* Rows */}
+          <div className="space-y-4">
+            {rows.map((row, index) => (
+              <EntryRowCard
+                key={row.rowId}
+                row={row}
+                index={index}
+                total={rows.length}
+                onUpdate={updateRow}
+                onRemove={removeRow}
               />
-            </div>
-          )}
-
-          {/* This Week */}
-          <div>
-            <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
-              THIS WEEK
-            </label>
-            <textarea
-              placeholder="이번 주 주요 업무 내용을 작성하세요"
-              value={form.thisWeek}
-              onChange={(e) => update('thisWeek', e.target.value)}
-              rows={3}
-              required
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all resize-none leading-relaxed"
-            />
+            ))}
           </div>
 
-          {/* Next Week */}
-          <div>
-            <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
-              NEXT WEEK
-            </label>
-            <textarea
-              placeholder="다음 주 계획을 작성하세요"
-              value={form.nextWeek}
-              onChange={(e) => update('nextWeek', e.target.value)}
-              rows={3}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all resize-none leading-relaxed"
-            />
-          </div>
-
-          {/* Progress */}
-          <div>
-            <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
-              PROGRESS
-            </label>
-            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-              <div className="px-4 py-3 flex items-center justify-between">
-                <span className="text-sm font-semibold text-slate-700">진도율</span>
-                <span className={`text-sm font-black ${progressColorText}`}>{form.progress}%</span>
-              </div>
-              <div className="h-1.5 bg-slate-100">
-                <div
-                  className={`h-full ${progressColor} transition-all`}
-                  style={{ width: `${form.progress}%` }}
-                />
-              </div>
-            </div>
-            <div className="mt-2 px-1">
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={form.progress}
-                onChange={(e) => update('progress', Number(e.target.value))}
-                className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
-                style={{
-                  background: `linear-gradient(to right, ${form.progress <= 30 ? '#ef4444' : form.progress <= 70 ? '#facc15' : '#10b981'} ${form.progress}%, #e2e8f0 ${form.progress}%)`,
-                }}
-              />
-              <div className="flex justify-between text-[10px] text-slate-400 mt-1 font-medium">
-                <span>0%</span>
-                <span className="text-red-400">30%</span>
-                <span className="text-yellow-500">70%</span>
-                <span className="text-emerald-500">100%</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Status + Priority row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
-                STATUS
-              </label>
-              <select
-                value={form.status}
-                onChange={(e) => update('status', e.target.value as SyncStatus)}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all cursor-pointer"
-              >
-                {STATUS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
-                PRIORITY
-              </label>
-              <div className="flex gap-1.5">
-                {PRIORITY_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => update('priority', opt.value)}
-                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all ${
-                      form.priority === opt.value ? opt.active : `bg-white ${opt.color} hover:opacity-70`
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Issue toggle + text */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase">
-                ISSUE / 특이사항
-              </label>
-              <button
-                type="button"
-                onClick={() => update('hasIssue', !form.hasIssue)}
-                className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-all ${
-                  form.hasIssue
-                    ? 'bg-red-100 text-red-600 border border-red-200'
-                    : 'bg-slate-100 text-slate-500 border border-slate-200'
-                }`}
-              >
-                {form.hasIssue ? '이슈 있음' : '이슈 없음'}
-              </button>
-            </div>
-            {form.hasIssue && (
-              <textarea
-                placeholder="이슈 또는 특이사항을 입력하세요"
-                value={form.issueText}
-                onChange={(e) => update('issueText', e.target.value)}
-                rows={2}
-                className="w-full px-4 py-2.5 rounded-xl border border-red-200 bg-red-50 text-slate-900 text-sm placeholder:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400 transition-all resize-none"
-              />
-            )}
-          </div>
+          {/* Add row button */}
+          <button
+            type="button"
+            onClick={addRow}
+            className="w-full py-3 flex items-center justify-center gap-2 text-sm font-semibold text-slate-500 border-2 border-dashed border-slate-200 rounded-xl hover:border-orange-300 hover:text-orange-500 hover:bg-orange-50/30 transition-all"
+          >
+            <Plus size={15} />
+            행 추가
+          </button>
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-1 border-t border-slate-100">
@@ -705,7 +822,7 @@ function NewUpdateModal({
               className="flex items-center gap-2 px-6 py-2.5 bg-orange-500 text-white text-sm font-bold rounded-xl hover:bg-orange-600 active:scale-95 transition-all shadow-sm shadow-orange-200"
             >
               <Plus size={14} />
-              보고서 등록
+              보고서 등록 ({rows.length}건)
             </button>
           </div>
         </form>
@@ -934,6 +1051,79 @@ function NoticeModal({
 }
 
 // ────────────────────────────────────────────
+// Notification Panel (Bell 버튼 - 읽기 전용 알림)
+// ────────────────────────────────────────────
+
+function NotificationPanel({
+  notices,
+  onClose,
+}: {
+  notices: NoticeItem[];
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-end">
+      <div className="absolute inset-0" onClick={onClose} />
+      <div className="relative bg-white w-full max-w-sm h-full border-l border-slate-200 shadow-2xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-white">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
+              <Bell size={18} />
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-slate-900">공지사항 알림</h2>
+              <p className="text-xs text-slate-400">
+                {notices.length > 0 ? `총 ${notices.length}건의 공지` : '새로운 공지가 없습니다'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Notice list */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          {notices.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                <Bell size={24} className="text-slate-300" />
+              </div>
+              <p className="text-sm font-semibold text-slate-400">새로운 알림이 없습니다</p>
+              <p className="text-xs text-slate-300 mt-1">공지사항이 등록되면 여기에 표시됩니다</p>
+            </div>
+          ) : (
+            [...notices].reverse().map((notice, index) => (
+              <div
+                key={notice.id}
+                className="flex items-start gap-3 px-4 py-3.5 bg-orange-50 border border-orange-100 rounded-xl"
+              >
+                <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <Megaphone size={13} className="text-orange-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-bold text-orange-600 bg-orange-200/60 px-1.5 py-0.5 rounded">
+                      공지 #{notices.length - index}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-700 leading-relaxed">{notice.content}</p>
+                  <p className="text-[10px] text-slate-400 mt-1.5">{notice.createdAt}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────
 // Main Page
 // ────────────────────────────────────────────
 
@@ -944,6 +1134,7 @@ export function WeeklySyncPage() {
   const [showNewUpdateModal, setShowNewUpdateModal] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showNotice, setShowNotice] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
 
   const [userProfile, setUserProfile] = useState<UserProfile>({
     name: '',
@@ -954,8 +1145,17 @@ export function WeeklySyncPage() {
 
   const [notices, setNotices] = useState<NoticeItem[]>([]);
 
-  const handleAddEntry = (entry: SyncEntry) => {
-    setEntries((prev) => [...prev, entry]);
+  // 지난주 미완료 항목: 현재 유저(또는 전체)의 미완료 항목 → 팝업 열 때 기본 행으로 셋팅
+  const lastWeekIncomplete = userProfile.name
+    ? entries.filter(
+        (e) =>
+          e.authorName === userProfile.name &&
+          e.status !== 'COMPLETED'
+      )
+    : [];
+
+  const handleAddEntries = (newEntries: SyncEntry[]) => {
+    setEntries((prev) => [...prev, ...newEntries]);
   };
 
   const handleAddNotice = (content: string) => {
@@ -998,7 +1198,9 @@ export function WeeklySyncPage() {
       {showNewUpdateModal && (
         <NewUpdateModal
           onClose={() => setShowNewUpdateModal(false)}
-          onAdd={handleAddEntry}
+          onAdd={handleAddEntries}
+          defaultAuthorName={userProfile.name}
+          lastWeekIncomplete={lastWeekIncomplete}
         />
       )}
       {showProfile && (
@@ -1014,6 +1216,12 @@ export function WeeklySyncPage() {
           onClose={() => setShowNotice(false)}
           onAdd={handleAddNotice}
           onDelete={handleDeleteNotice}
+        />
+      )}
+      {showNotification && (
+        <NotificationPanel
+          notices={notices}
+          onClose={() => setShowNotification(false)}
         />
       )}
 
@@ -1099,11 +1307,12 @@ export function WeeklySyncPage() {
             </button>
 
             <button
-              onClick={() => setShowNotice(true)}
+              onClick={() => setShowNotification(true)}
               className="relative w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+              title="공지사항 알림"
             >
               <Bell size={16} />
-              {(issueCount > 0 || notices.length > 0) && (
+              {notices.length > 0 && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
               )}
             </button>
