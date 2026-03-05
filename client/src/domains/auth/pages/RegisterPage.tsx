@@ -64,8 +64,10 @@ export function RegisterPage() {
         </div>
 
         {/* 폼 */}
-        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
-          <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          {/* 인디고 상단 accent */}
+          <div className="h-1.5 bg-gradient-to-r from-indigo-500 to-indigo-600" />
+          <form onSubmit={handleSubmit} className="space-y-5 p-8">
             {/* 이름 */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">이름</label>
@@ -242,7 +244,7 @@ export function RegisterPage() {
             </button>
           </form>
 
-          <div className="border-t border-slate-100 mt-5 pt-5 text-center">
+          <div className="border-t border-slate-100 mx-8 pb-8 pt-5 text-center">
             <p className="text-sm text-slate-500">
               이미 계정이 있으신가요?{' '}
               <Link
