@@ -18,6 +18,7 @@ import {
   Save,
   Trash2,
   Megaphone,
+  Pencil,
 } from 'lucide-react';
 
 // ────────────────────────────────────────────
@@ -43,6 +44,7 @@ interface SyncEntry {
   status: SyncStatus;
   hasIssue: boolean;
   issueText?: string;
+  weekLabel?: string;
 }
 
 interface UserProfile {
@@ -77,6 +79,8 @@ const AVATAR_BG_POOL = [
   'bg-cyan-500', 'bg-purple-500', 'bg-amber-500', 'bg-pink-500',
   'bg-teal-500', 'bg-indigo-500',
 ];
+
+const CURRENT_WEEK_LABEL = '2026년 3월 1주차';
 
 // ────────────────────────────────────────────
 // Mock Data
@@ -228,6 +232,85 @@ const INITIAL_SYNC_DATA: SyncEntry[] = [
   },
 ];
 
+const PREV_WEEK_ENTRIES: SyncEntry[] = [
+  {
+    id: 'pw-1',
+    authorName: '김민준',
+    avatarBg: 'bg-orange-500',
+    company: '세아특수강',
+    companyColor: 'bg-blue-100 text-blue-700',
+    category: '제품개발',
+    thisWeek: '고객 포털 인증 모듈 설계 착수. 기술 스펙 문서 작성 및 팀 리뷰 진행.',
+    nextWeek: '고객 포털 로그인/회원가입 UI 재설계 및 OAuth API 연동 착수.',
+    progress: 60,
+    priority: '상',
+    status: 'IN_PROGRESS',
+    hasIssue: false,
+    weekLabel: '2026년 2월 4주차',
+  },
+  {
+    id: 'pw-2',
+    authorName: '이서연',
+    avatarBg: 'bg-violet-500',
+    company: '세아M&S',
+    companyColor: 'bg-green-100 text-green-700',
+    category: '온보딩',
+    thisWeek: '신규 입사자 온보딩 자료 1차 초안 작성. 기존 자료 검토 및 개선 방향 논의.',
+    nextWeek: '주간 정기 회의 참석 및 팀 온보딩 자료 전면 업데이트.',
+    progress: 50,
+    priority: '하',
+    status: 'IN_PROGRESS',
+    hasIssue: false,
+    weekLabel: '2026년 2월 4주차',
+  },
+  {
+    id: 'pw-3',
+    authorName: '최수아',
+    avatarBg: 'bg-rose-500',
+    company: '세아베스틸 지주',
+    companyColor: 'bg-amber-100 text-amber-700',
+    category: '고객지원',
+    thisWeek: '고객사 월간 정기 지원 미팅 진행. 이슈 트래커 백로그 정리.',
+    nextWeek: '고객사 기술 지원 미팅 3건 처리. 긴급 버그 패치 배포.',
+    progress: 80,
+    priority: '중',
+    status: 'COMPLETED',
+    hasIssue: false,
+    weekLabel: '2026년 2월 4주차',
+  },
+  {
+    id: 'pw-4',
+    authorName: '강도현',
+    avatarBg: 'bg-teal-500',
+    company: '세아홀딩스',
+    companyColor: 'bg-violet-100 text-violet-700',
+    category: '보안',
+    thisWeek: '보안 감사 계획서 작성 및 외부 감사 업체 선정 진행.',
+    nextWeek: '취약점 점검 보고서 작성. 인증 모듈 보안 감사 착수.',
+    progress: 20,
+    priority: '상',
+    status: 'IN_PROGRESS',
+    hasIssue: true,
+    issueText: '외부 보안 감사 업체 일정 협의 중 — 최종 확정 필요',
+    weekLabel: '2026년 2월 4주차',
+  },
+  {
+    id: 'pw-5',
+    authorName: '박지호',
+    avatarBg: 'bg-emerald-500',
+    company: '세아홀딩스',
+    companyColor: 'bg-violet-100 text-violet-700',
+    category: '데이터',
+    thisWeek: '데이터 분석 요구사항 수집 및 현황 파악. 이해관계자 인터뷰 3회 진행.',
+    nextWeek: 'ETL 파이프라인 설계 착수. 데이터 소스 정의 및 스키마 초안 작성.',
+    progress: 15,
+    priority: '중',
+    status: 'IN_PROGRESS',
+    hasIssue: false,
+    weekLabel: '2026년 2월 4주차',
+  },
+];
+
 // ────────────────────────────────────────────
 // Sub-components
 // ────────────────────────────────────────────
@@ -314,6 +397,7 @@ function ProgressBar({ value }: { value: number }) {
 }
 
 type TabKey = 'all' | 'myteam' | 'flagged';
+type ViewMode = 'dashboard' | 'entries';
 
 // ────────────────────────────────────────────
 // New Update Modal (Multi-row)
@@ -663,11 +747,13 @@ function NewUpdateModal({
   onAdd,
   defaultAuthorName,
   lastWeekIncomplete,
+  currentWeekLabel,
 }: {
   onClose: () => void;
   onAdd: (entries: SyncEntry[]) => void;
   defaultAuthorName: string;
   lastWeekIncomplete: SyncEntry[];
+  currentWeekLabel: string;
 }) {
   const buildRowFromLastWeek = (entry: SyncEntry): EntryRow => ({
     rowId: `row-lw-${entry.id}`,
@@ -732,6 +818,7 @@ function NewUpdateModal({
         status: row.status,
         hasIssue: row.hasIssue,
         issueText: row.hasIssue ? row.issueText : undefined,
+        weekLabel: currentWeekLabel,
       };
     });
 
@@ -751,7 +838,7 @@ function NewUpdateModal({
           <div>
             <h2 className="text-base font-black text-slate-900">주간보고 작성</h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              2026년 3월 1주차 · {rows.length}개 항목
+              {currentWeekLabel} · {rows.length}개 항목
               {lastWeekIncomplete.length > 0 && (
                 <span className="ml-2 text-amber-500">
                   (지난주 미완료 {lastWeekIncomplete.length}건 자동 인계)
@@ -828,6 +915,405 @@ function NewUpdateModal({
         </form>
       </div>
     </div>
+  );
+}
+
+// ────────────────────────────────────────────
+// Edit / Add Entry Modal (전체 보고 내역 뷰에서 사용)
+// ────────────────────────────────────────────
+
+function entryToRow(entry: SyncEntry): EntryRow {
+  return {
+    rowId: `row-edit-${entry.id}`,
+    fromLastWeek: false,
+    category: '일반업무',
+    company: COMPANY_OPTIONS.includes(entry.company as Company) ? (entry.company as Company) : '',
+    taskType: TASK_TYPE_OPTIONS.includes(entry.category as TaskType) ? (entry.category as TaskType) : '',
+    projectName: '',
+    thisWeek: entry.thisWeek,
+    nextWeek: entry.nextWeek,
+    progress: entry.progress,
+    status: entry.status,
+    priority: entry.priority,
+    hasIssue: entry.hasIssue,
+    issueText: entry.issueText ?? '',
+  };
+}
+
+function EditEntryModal({
+  entry,
+  onClose,
+  onSave,
+  weekOptions,
+}: {
+  entry: SyncEntry | null;
+  onClose: () => void;
+  onSave: (saved: SyncEntry) => void;
+  weekOptions: string[];
+}) {
+  const isNew = !entry;
+  const [authorName, setAuthorName] = useState(entry?.authorName ?? '');
+  const [weekLabel, setWeekLabel] = useState(entry?.weekLabel ?? CURRENT_WEEK_LABEL);
+  const [row, setRow] = useState<EntryRow>(() =>
+    entry ? entryToRow(entry) : makeDefaultRow()
+  );
+
+  const updateRow = (_rowId: string, key: keyof EntryRow, value: EntryRow[keyof EntryRow]) => {
+    setRow((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const categoryLabel =
+      row.category === '일반업무'
+        ? row.taskType || '일반업무'
+        : row.category === '프로젝트'
+        ? row.projectName || '프로젝트'
+        : '기타';
+    const companyLabel = row.company || (entry?.company ?? '미지정');
+    const companyColor = row.company
+      ? (COMPANY_COLORS[row.company] ?? 'bg-slate-100 text-slate-600')
+      : (entry?.companyColor ?? 'bg-slate-100 text-slate-600');
+
+    const saved: SyncEntry = {
+      id: entry?.id ?? `${Date.now()}`,
+      authorName,
+      avatarBg: entry?.avatarBg ?? AVATAR_BG_POOL[Math.floor(Math.random() * AVATAR_BG_POOL.length)],
+      company: companyLabel,
+      companyColor,
+      category: categoryLabel,
+      thisWeek: row.thisWeek,
+      nextWeek: row.nextWeek,
+      progress: row.progress,
+      priority: row.priority,
+      status: row.status,
+      hasIssue: row.hasIssue,
+      issueText: row.hasIssue ? row.issueText : undefined,
+      weekLabel,
+    };
+    onSave(saved);
+    onClose();
+  };
+
+  const allWeekOptions = Array.from(new Set([...weekOptions, CURRENT_WEEK_LABEL])).sort().reverse();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
+          <div>
+            <h2 className="text-base font-black text-slate-900">
+              {isNew ? '보고 내역 추가' : '보고 내역 수정'}
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {isNew
+                ? '새로운 보고 항목을 등록합니다'
+                : `${entry!.authorName} · ${entry!.weekLabel ?? CURRENT_WEEK_LABEL}`}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
+          {/* Member + Week */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+                MEMBER
+              </label>
+              <input
+                type="text"
+                placeholder="이름을 입력하세요"
+                value={authorName}
+                onChange={(e) => setAuthorName(e.target.value)}
+                required
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold tracking-widest text-slate-400 uppercase mb-1.5">
+                WEEK
+              </label>
+              <div className="relative">
+                <select
+                  value={weekLabel}
+                  onChange={(e) => setWeekLabel(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all cursor-pointer appearance-none pr-8"
+                >
+                  {allWeekOptions.map((w) => (
+                    <option key={w} value={w}>{w}</option>
+                  ))}
+                </select>
+                <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+
+          <EntryRowCard
+            row={row}
+            index={0}
+            total={1}
+            onUpdate={updateRow}
+            onRemove={() => {}}
+          />
+
+          <div className="flex items-center justify-end gap-3 pt-1 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors"
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              className="flex items-center gap-2 px-6 py-2.5 bg-orange-500 text-white text-sm font-bold rounded-xl hover:bg-orange-600 active:scale-95 transition-all shadow-sm shadow-orange-200"
+            >
+              <Save size={14} />
+              {isNew ? '등록하기' : '수정 완료'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────
+// All Entries View (TrendingUp 버튼 클릭 시)
+// ────────────────────────────────────────────
+
+function AllEntriesView({
+  entries,
+  onAdd,
+  onEdit,
+  onDelete,
+}: {
+  entries: SyncEntry[];
+  onAdd: (entry: SyncEntry) => void;
+  onEdit: (entry: SyncEntry) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [weekFilter, setWeekFilter] = useState('');
+  const [editingEntry, setEditingEntry] = useState<SyncEntry | null | 'new'>(null);
+
+  const weekOptions = Array.from(
+    new Set(entries.map((e) => e.weekLabel ?? CURRENT_WEEK_LABEL))
+  ).sort().reverse();
+
+  const filteredEntries = weekFilter
+    ? entries.filter((e) => (e.weekLabel ?? CURRENT_WEEK_LABEL) === weekFilter)
+    : entries;
+
+  const handleSave = (saved: SyncEntry) => {
+    if (editingEntry === 'new') {
+      onAdd(saved);
+    } else if (editingEntry) {
+      onEdit(saved);
+    }
+    setEditingEntry(null);
+  };
+
+  return (
+    <>
+      {editingEntry !== null && (
+        <EditEntryModal
+          entry={editingEntry === 'new' ? null : editingEntry}
+          onClose={() => setEditingEntry(null)}
+          onSave={handleSave}
+          weekOptions={weekOptions}
+        />
+      )}
+
+      {/* Page heading */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-black text-slate-900">전체 보고 내역</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            작성된 모든 주간보고를 확인하고 수정할 수 있습니다 · 총 {entries.length}건
+          </p>
+        </div>
+        <button
+          onClick={() => setEditingEntry('new')}
+          className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-bold rounded-xl hover:bg-orange-600 active:scale-95 transition-all shadow-sm shadow-orange-200"
+        >
+          <Plus size={15} />
+          행 추가
+        </button>
+      </div>
+
+      {/* Week filter */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs font-bold text-slate-500 mr-1">주차 필터:</span>
+        <button
+          onClick={() => setWeekFilter('')}
+          className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+            weekFilter === ''
+              ? 'bg-orange-500 text-white border-orange-500'
+              : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300 hover:text-orange-500'
+          }`}
+        >
+          전체
+        </button>
+        {weekOptions.map((week) => (
+          <button
+            key={week}
+            onClick={() => setWeekFilter(weekFilter === week ? '' : week)}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+              weekFilter === week
+                ? 'bg-orange-500 text-white border-orange-500'
+                : 'bg-white border-slate-200 text-slate-600 hover:border-orange-300 hover:text-orange-500'
+            }`}
+          >
+            {week}
+          </button>
+        ))}
+      </div>
+
+      {/* Grid Table */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                {['WEEK', 'MEMBER', 'COMPANY', 'CATEGORY', 'THIS WEEK', 'NEXT WEEK', 'PROGRESS', 'STATUS', 'PRIORITY', ''].map((col) => (
+                  <th
+                    key={col}
+                    className="px-4 py-3 text-left text-[10px] font-bold tracking-widest text-slate-400 uppercase whitespace-nowrap"
+                  >
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredEntries.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="px-4 py-12 text-center text-sm text-slate-400">
+                    등록된 보고 내역이 없습니다.
+                  </td>
+                </tr>
+              ) : (
+                filteredEntries.map((entry) => (
+                  <tr
+                    key={entry.id}
+                    className={`border-b border-slate-100 hover:bg-orange-50/40 transition-colors ${
+                      entry.hasIssue ? 'bg-red-50/20' : ''
+                    }`}
+                  >
+                    {/* WEEK */}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="text-[10px] font-semibold text-slate-500">
+                        {entry.weekLabel ?? CURRENT_WEEK_LABEL}
+                      </span>
+                    </td>
+
+                    {/* MEMBER */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <Avatar name={entry.authorName} bgClass={entry.avatarBg} />
+                        <p className="font-semibold text-slate-800 text-sm leading-tight">
+                          {entry.authorName}
+                        </p>
+                      </div>
+                    </td>
+
+                    {/* COMPANY */}
+                    <td className="px-4 py-3">
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${entry.companyColor}`}>
+                        {entry.company}
+                      </span>
+                    </td>
+
+                    {/* CATEGORY */}
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-semibold rounded">
+                        {entry.category}
+                      </span>
+                    </td>
+
+                    {/* THIS WEEK */}
+                    <td className="px-4 py-3 max-w-[180px]">
+                      <p className="text-xs text-slate-700 leading-relaxed line-clamp-2">
+                        {entry.thisWeek}
+                      </p>
+                      {entry.hasIssue && (
+                        <p className="text-[10px] text-red-500 font-medium mt-1 flex items-center gap-1">
+                          <AlertTriangle size={10} />
+                          {entry.issueText}
+                        </p>
+                      )}
+                    </td>
+
+                    {/* NEXT WEEK */}
+                    <td className="px-4 py-3 max-w-[160px]">
+                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
+                        {entry.nextWeek}
+                      </p>
+                    </td>
+
+                    {/* PROGRESS */}
+                    <td className="px-4 py-3">
+                      <ProgressBar value={entry.progress} />
+                    </td>
+
+                    {/* STATUS */}
+                    <td className="px-4 py-3">
+                      <StatusBadge status={entry.status} />
+                    </td>
+
+                    {/* PRIORITY */}
+                    <td className="px-4 py-3">
+                      <PriorityDot priority={entry.priority} />
+                    </td>
+
+                    {/* ACTIONS */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setEditingEntry(entry)}
+                          className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"
+                          title="수정"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          onClick={() => onDelete(entry.id)}
+                          className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="삭제"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-3 flex items-center justify-between bg-slate-50 border-t border-slate-200">
+          <p className="text-xs text-slate-400">
+            {filteredEntries.length}건 표시 중 (전체 {entries.length}건)
+          </p>
+          <button
+            onClick={() => setEditingEntry('new')}
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-orange-500 transition-colors"
+          >
+            <Plus size={12} />
+            행 추가
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -1128,7 +1614,11 @@ function NotificationPanel({
 // ────────────────────────────────────────────
 
 export function WeeklySyncPage() {
-  const [entries, setEntries] = useState<SyncEntry[]>(INITIAL_SYNC_DATA);
+  const [entries, setEntries] = useState<SyncEntry[]>([
+    ...INITIAL_SYNC_DATA,
+    ...PREV_WEEK_ENTRIES,
+  ]);
+  const [activeView, setActiveView] = useState<ViewMode>('dashboard');
   const [activeTab, setActiveTab] = useState<TabKey>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewUpdateModal, setShowNewUpdateModal] = useState(false);
@@ -1156,6 +1646,14 @@ export function WeeklySyncPage() {
 
   const handleAddEntries = (newEntries: SyncEntry[]) => {
     setEntries((prev) => [...prev, ...newEntries]);
+  };
+
+  const handleEditEntry = (updated: SyncEntry) => {
+    setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+  };
+
+  const handleDeleteEntry = (id: string) => {
+    setEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
   const handleAddNotice = (content: string) => {
@@ -1201,6 +1699,7 @@ export function WeeklySyncPage() {
           onAdd={handleAddEntries}
           defaultAuthorName={userProfile.name}
           lastWeekIncomplete={lastWeekIncomplete}
+          currentWeekLabel={CURRENT_WEEK_LABEL}
         />
       )}
       {showProfile && (
@@ -1233,8 +1732,12 @@ export function WeeklySyncPage() {
         </div>
 
         <button
-          onClick={() => {}}
-          className="w-10 h-10 rounded-xl flex items-center justify-center bg-orange-50 text-orange-500 transition-colors"
+          onClick={() => setActiveView('dashboard')}
+          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+            activeView === 'dashboard'
+              ? 'bg-orange-50 text-orange-500'
+              : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'
+          }`}
           title="대시보드"
         >
           <LayoutDashboard size={18} />
@@ -1249,9 +1752,13 @@ export function WeeklySyncPage() {
         </button>
 
         <button
-          onClick={() => {}}
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition-colors"
-          title="트렌드"
+          onClick={() => setActiveView('entries')}
+          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+            activeView === 'entries'
+              ? 'bg-orange-50 text-orange-500'
+              : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'
+          }`}
+          title="전체 보고 내역"
         >
           <TrendingUp size={18} />
         </button>
@@ -1329,6 +1836,19 @@ export function WeeklySyncPage() {
 
         {/* ── Content ── */}
         <main className="flex-1 overflow-y-auto p-6 space-y-5">
+          {/* ── All Entries View ── */}
+          {activeView === 'entries' && (
+            <AllEntriesView
+              entries={entries}
+              onAdd={(entry) => handleAddEntries([entry])}
+              onEdit={handleEditEntry}
+              onDelete={handleDeleteEntry}
+            />
+          )}
+
+          {/* ── Dashboard View ── */}
+          {activeView === 'dashboard' && (
+          <>
           {/* Notice banner */}
           {notices.length > 0 && (
             <div
@@ -1627,6 +2147,8 @@ export function WeeklySyncPage() {
               </p>
             </div>
           </div>
+          </> /* end dashboard view */
+          )}
         </main>
       </div>
     </div>
