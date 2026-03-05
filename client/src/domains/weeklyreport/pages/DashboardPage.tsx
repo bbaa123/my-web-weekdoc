@@ -39,9 +39,6 @@ const PRIORITY_CONFIG: Record<string, string> = {
   하: 'bg-slate-50 text-slate-500 border-slate-200',
 };
 
-const currentYear = new Date().getFullYear();
-const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - i);
-const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 const WEEKS = Array.from({ length: 53 }, (_, i) => i + 1);
 
 interface ReportFromApi {
@@ -66,22 +63,36 @@ interface ReportFromApi {
   updated_at: string;
 }
 
+interface MemberOption {
+  id: number;
+  name: string;
+  department: string;
+  position: string;
+}
+
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [reports, setReports] = useState<ReportFromApi[]>([]);
   const [loading, setLoading] = useState(false);
-  const [filterYear, setFilterYear] = useState<number | ''>('');
-  const [filterMonth, setFilterMonth] = useState<number | ''>('');
+  const [members, setMembers] = useState<MemberOption[]>([]);
   const [filterWeek, setFilterWeek] = useState<number | ''>('');
   const [filterMemberId, setFilterMemberId] = useState<number | ''>('');
+
+  const fetchMembers = async () => {
+    if (!user?.is_admin) return;
+    try {
+      const response = await apiClient.get<MemberOption[]>('/v1/auth/users');
+      setMembers(response.data);
+    } catch {
+      // 멤버 목록 로드 실패 시 무시
+    }
+  };
 
   const fetchReports = async () => {
     setLoading(true);
     try {
       const params: Record<string, string> = {};
-      if (filterYear) params.year = String(filterYear);
-      if (filterMonth) params.month = String(filterMonth);
       if (filterWeek) params.week_number = String(filterWeek);
       if (filterMemberId && user?.is_admin) params.member_id = String(filterMemberId);
 
@@ -98,6 +109,7 @@ export function DashboardPage() {
   };
 
   useEffect(() => {
+    fetchMembers();
     fetchReports();
   }, []);
 
@@ -106,8 +118,6 @@ export function DashboardPage() {
   };
 
   const handleReset = () => {
-    setFilterYear('');
-    setFilterMonth('');
     setFilterWeek('');
     setFilterMemberId('');
     setTimeout(fetchReports, 0);
@@ -142,7 +152,7 @@ export function DashboardPage() {
             <span className="text-slate-300">|</span>
             <div className="flex items-center gap-2 text-indigo-600 font-bold">
               <BarChart2 size={18} />
-              전체 보고서 현황
+              전체 보고내역
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -190,40 +200,27 @@ export function DashboardPage() {
             <Filter size={16} />
             조회 조건
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {/* 년도 */}
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1.5">년도</label>
-              <select
-                value={filterYear}
-                onChange={(e) => setFilterYear(e.target.value ? Number(e.target.value) : '')}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all cursor-pointer"
-              >
-                <option value="">전체 년도</option>
-                {YEARS.map((y) => (
-                  <option key={y} value={y}>
-                    {y}년
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 월 */}
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1.5">월</label>
-              <select
-                value={filterMonth}
-                onChange={(e) => setFilterMonth(e.target.value ? Number(e.target.value) : '')}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all cursor-pointer"
-              >
-                <option value="">전체 월</option>
-                {MONTHS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}월
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* 멤버 (관리자용) */}
+            {user?.is_admin && (
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1.5">멤버</label>
+                <select
+                  value={filterMemberId}
+                  onChange={(e) =>
+                    setFilterMemberId(e.target.value ? Number(e.target.value) : '')
+                  }
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all cursor-pointer"
+                >
+                  <option value="">전체 멤버</option>
+                  {members.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({m.position})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* 주차 */}
             <div>
@@ -241,25 +238,6 @@ export function DashboardPage() {
                 ))}
               </select>
             </div>
-
-            {/* 멤버 (관리자용) */}
-            {user?.is_admin && (
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1.5">
-                  멤버 ID (관리자)
-                </label>
-                <input
-                  type="number"
-                  value={filterMemberId}
-                  onChange={(e) =>
-                    setFilterMemberId(e.target.value ? Number(e.target.value) : '')
-                  }
-                  placeholder="멤버 ID"
-                  min={1}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all"
-                />
-              </div>
-            )}
           </div>
 
           <div className="flex gap-3 mt-4">
