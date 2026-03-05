@@ -22,6 +22,10 @@ class UserRepository:
         result = await self.db.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
 
+    async def list_all(self) -> list[User]:
+        result = await self.db.execute(select(User).where(User.is_active == True).order_by(User.name))
+        return list(result.scalars().all())
+
     async def create(self, user: User) -> User:
         self.db.add(user)
         await self.db.commit()
