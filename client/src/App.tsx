@@ -17,6 +17,7 @@ interface DocumentConfig {
 
 function App() {
   const [connectionStatus, setConnectionStatus] = useState<'loading' | 'ok' | 'error'>('loading');
+  const [dbChecking, setDbChecking] = useState(false);
   const [documentViewer, setDocumentViewer] = useState<{
     isOpen: boolean;
     title: string;
@@ -65,12 +66,15 @@ function App() {
 
   // DB 연결 테스트 핸들러
   const handleDBCheck = async () => {
+    setDbChecking(true);
     try {
       const result = await checkDatabaseConnection();
       toast.success(result.message);
-    } catch (error: any) {
-      const errorMessage = error?.message || 'DB 연결 실패';
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'DB 연결 실패';
       toast.error(errorMessage);
+    } finally {
+      setDbChecking(false);
     }
   };
 
@@ -156,11 +160,12 @@ function App() {
               </div>
               <button
                 onClick={handleDBCheck}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-100 transition-all active:scale-95 border border-blue-200"
+                disabled={dbChecking}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-100 transition-all active:scale-95 border border-blue-200 disabled:opacity-60 disabled:cursor-not-allowed"
                 title="Supabase DB 연결 테스트"
               >
-                <Database size={14} />
-                DB 연결 테스트
+                <Database size={14} className={dbChecking ? 'animate-pulse' : ''} />
+                {dbChecking ? '확인 중...' : 'DB 연결 테스트'}
               </button>
               <button className="bg-slate-900 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-slate-800 transition-all active:scale-95">
                 시작하기
