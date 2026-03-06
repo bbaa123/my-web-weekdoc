@@ -19,7 +19,9 @@ import {
   Trash2,
   Megaphone,
   Pencil,
+  LogOut,
 } from 'lucide-react';
+import { useAuthStore } from '@/core/store/useAuthStore';
 
 // ────────────────────────────────────────────
 // Types
@@ -1614,6 +1616,9 @@ function NotificationPanel({
 // ────────────────────────────────────────────
 
 export function WeeklySyncPage() {
+  const authUser = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+
   const [entries, setEntries] = useState<SyncEntry[]>([
     ...INITIAL_SYNC_DATA,
     ...PREV_WEEK_ENTRIES,
@@ -1627,9 +1632,9 @@ export function WeeklySyncPage() {
   const [showNotification, setShowNotification] = useState(false);
 
   const [userProfile, setUserProfile] = useState<UserProfile>({
-    name: '',
-    email: '',
-    jobTitle: '',
+    name: authUser?.name ?? '',
+    email: authUser?.email ?? '',
+    jobTitle: authUser?.role ?? '',
     joinDate: '',
   });
 
@@ -1830,6 +1835,14 @@ export function WeeklySyncPage() {
               title="내 프로필"
             >
               {userProfile.name ? userProfile.name.slice(0, 1) : '나'}
+            </button>
+
+            <button
+              onClick={logout}
+              className="w-8 h-8 flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors"
+              title="로그아웃"
+            >
+              <LogOut size={16} />
             </button>
           </div>
         </header>
