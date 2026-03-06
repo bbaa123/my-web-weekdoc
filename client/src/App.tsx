@@ -7,8 +7,14 @@ import { DocumentViewer } from './components/DocumentViewer';
 import { checkDatabaseConnection } from './domains/system/api';
 import { toast } from './core/utils/toast';
 import { MemberReportPage, AdminDashboardPage, WeeklySyncPage, DashboardPage } from './domains/weeklyreport';
-import { LoginPage, RegisterPage } from './domains/auth';
+import { LoginPage, RegisterPage, WeeklySyncLoginPage } from './domains/auth';
 import { PrivateRoute } from './core/auth/PrivateRoute';
+import { useAuthStore } from './core/store/useAuthStore';
+
+function WeeklySyncRoute() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  return isAuthenticated ? <WeeklySyncPage /> : <WeeklySyncLoginPage />;
+}
 
 interface DocumentConfig {
   title: string;
@@ -108,7 +114,7 @@ function App() {
         />
         <Route
           path="/weekly-sync"
-          element={<PrivateRoute><WeeklySyncPage /></PrivateRoute>}
+          element={<WeeklySyncRoute />}
         />
         <Route path="/" element={<Navigate to="/weekly-sync" replace />} />
         <Route
