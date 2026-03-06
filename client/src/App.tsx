@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Link } from 'react-router-dom';
+import { Routes, Route, Link, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import { Activity, Zap, ArrowRight, Database, FileCode, BookOpen, Layers, Layout, Code, ClipboardList, LayoutDashboard, CalendarDays } from 'lucide-react';
 import { LoadingOverlay } from './core/loading';
@@ -110,8 +110,9 @@ function App() {
           path="/weekly-sync"
           element={<PrivateRoute><WeeklySyncPage /></PrivateRoute>}
         />
+        <Route path="/" element={<Navigate to="/weekly-sync" replace />} />
         <Route
-          path="*"
+          path="/landing"
           element={
       <div className="min-h-screen bg-mesh selection:bg-indigo-100">
         {/* 1. 네비게이션 - 플로팅 스타일 */}
@@ -289,6 +290,7 @@ function App() {
       </div>
           }
         />
+        <Route path="*" element={<Navigate to="/weekly-sync" replace />} />
       </Routes>
     </>
   );
