@@ -1618,6 +1618,7 @@ function NotificationPanel({
 export function WeeklySyncPage() {
   const authUser = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const isAdmin = authUser?.is_admin ?? false;
 
   const [entries, setEntries] = useState<SyncEntry[]>([
     ...INITIAL_SYNC_DATA,
@@ -1690,10 +1691,13 @@ export function WeeklySyncPage() {
       entry.company.includes(searchQuery) ||
       entry.thisWeek.includes(searchQuery);
 
-    if (activeTab === 'flagged') return matchesSearch && entry.hasIssue;
+    // 일반 사용자는 본인 항목만 조회, 관리자는 전체 조회
+    const matchesUser = isAdmin || !userProfile.name || entry.authorName === userProfile.name;
+
+    if (activeTab === 'flagged') return matchesSearch && matchesUser && entry.hasIssue;
     if (activeTab === 'myteam')
-      return matchesSearch && ['김민준', '정우진', '이서연'].includes(entry.authorName);
-    return matchesSearch;
+      return matchesSearch && matchesUser && ['김민준', '정우진', '이서연'].includes(entry.authorName);
+    return matchesSearch && matchesUser;
   });
 
   return (
