@@ -31,6 +31,7 @@ from server.app.core.database import Base  # noqa: E402
 # Import all domain models to register them with Base.metadata
 from server.app.domain.auth.models.user import User  # noqa: F401
 from server.app.domain.weeklyreport.models.weekly_report import WeeklyReport  # noqa: F401
+from server.app.domain.login.models.login import Login  # noqa: F401
 
 # Set target metadata for autogenerate support
 target_metadata = Base.metadata
