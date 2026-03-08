@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Search,
   Bell,
@@ -22,6 +22,8 @@ import {
   LogOut,
 } from 'lucide-react';
 import { useAuthStore } from '@/core/store/useAuthStore';
+import type { NoticeItem } from '../types';
+import { fetchNotices, fetchActiveNotices, createNotice, deleteNotice } from '../api';
 
 // ────────────────────────────────────────────
 // Types
@@ -56,11 +58,7 @@ interface UserProfile {
   joinDate: string;
 }
 
-interface NoticeItem {
-  id: string;
-  content: string;
-  createdAt: string;
-}
+// NoticeItem은 ../types에서 import됨
 
 // ────────────────────────────────────────────
 // Constants
@@ -1450,16 +1448,20 @@ function NoticeModal({
 }: {
   notices: NoticeItem[];
   onClose: () => void;
-  onAdd: (content: string) => void;
-  onDelete: (id: string) => void;
+  onAdd: (content: string, startAt: string, endAt: string) => void;
+  onDelete: (id: number) => void;
 }) {
   const [text, setText] = useState('');
+  const [startAt, setStartAt] = useState('');
+  const [endAt, setEndAt] = useState('');
 
   const handleAdd = () => {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    onAdd(trimmed);
+    if (!trimmed || !startAt || !endAt) return;
+    onAdd(trimmed, startAt, endAt);
     setText('');
+    setStartAt('');
+    setEndAt('');
   };
 
   return (
@@ -1486,7 +1488,7 @@ function NoticeModal({
         </div>
 
         {/* Input */}
-        <div className="px-6 py-4 border-b border-slate-100">
+        <div className="px-6 py-4 border-b border-slate-100 space-y-3">
           <textarea
             placeholder="공지 내용을 입력하세요"
             value={text}
@@ -1494,11 +1496,32 @@ function NoticeModal({
             rows={3}
             className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all resize-none"
           />
-          <div className="flex justify-end mt-2">
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-[11px] font-semibold text-slate-500 mb-1">공지 시작일</label>
+              <input
+                type="date"
+                value={startAt}
+                onChange={(e) => setStartAt(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-[11px] font-semibold text-slate-500 mb-1">공지 종료일</label>
+              <input
+                type="date"
+                value={endAt}
+                onChange={(e) => setEndAt(e.target.value)}
+                min={startAt}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
             <button
               type="button"
               onClick={handleAdd}
-              disabled={!text.trim()}
+              disabled={!text.trim() || !startAt || !endAt}
               className="flex items-center gap-2 px-5 py-2 bg-orange-500 text-white text-sm font-bold rounded-xl hover:bg-orange-600 active:scale-95 transition-all shadow-sm shadow-orange-200 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Flag size={13} />
@@ -1517,10 +1540,20 @@ function NoticeModal({
                 key={notice.id}
                 className="flex items-start gap-3 px-3 py-3 bg-orange-50 border border-orange-100 rounded-xl group"
               >
-                <Flag size={13} className="text-orange-400 mt-0.5 shrink-0" />
+                <div className="w-5 h-5 rounded-full bg-orange-200 flex items-center justify-center shrink-0 mt-0.5">
+                  <Flag size={10} className="text-orange-600" />
+                </div>
                 <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-bold text-orange-600 bg-orange-200/60 px-1.5 py-0.5 rounded">
+                      #{notice.seqNo}
+                    </span>
+                    <span className="text-[10px] text-slate-500">{notice.authorName}</span>
+                  </div>
                   <p className="text-sm text-slate-700 leading-relaxed">{notice.content}</p>
-                  <p className="text-[10px] text-slate-400 mt-1">{notice.createdAt}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {notice.startAt} ~ {notice.endAt}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -1585,7 +1618,7 @@ function NotificationPanel({
               <p className="text-xs text-slate-300 mt-1">공지사항이 등록되면 여기에 표시됩니다</p>
             </div>
           ) : (
-            [...notices].reverse().map((notice, index) => (
+            [...notices].reverse().map((notice) => (
               <div
                 key={notice.id}
                 className="flex items-start gap-3 px-4 py-3.5 bg-orange-50 border border-orange-100 rounded-xl"
@@ -1596,11 +1629,14 @@ function NotificationPanel({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[10px] font-bold text-orange-600 bg-orange-200/60 px-1.5 py-0.5 rounded">
-                      공지 #{notices.length - index}
+                      공지 #{notice.seqNo}
                     </span>
+                    <span className="text-[10px] text-slate-500">{notice.authorName}</span>
                   </div>
                   <p className="text-sm text-slate-700 leading-relaxed">{notice.content}</p>
-                  <p className="text-[10px] text-slate-400 mt-1.5">{notice.createdAt}</p>
+                  <p className="text-[10px] text-slate-400 mt-1.5">
+                    {notice.startAt} ~ {notice.endAt}
+                  </p>
                 </div>
               </div>
             ))
@@ -1640,6 +1676,26 @@ export function WeeklySyncPage() {
   });
 
   const [notices, setNotices] = useState<NoticeItem[]>([]);
+  const [activeNotices, setActiveNotices] = useState<NoticeItem[]>([]);
+
+  useEffect(() => {
+    fetchNotices()
+      .then((res) => setNotices(res.data))
+      .catch(() => {});
+    fetchActiveNotices()
+      .then((res) => setActiveNotices(res.data))
+      .catch(() => {});
+  }, []);
+
+  const refreshNotices = async () => {
+    try {
+      const [allRes, activeRes] = await Promise.all([fetchNotices(), fetchActiveNotices()]);
+      setNotices(allRes.data);
+      setActiveNotices(activeRes.data);
+    } catch {
+      // ignore
+    }
+  };
 
   // 지난주 미완료 항목: 현재 유저(또는 전체)의 미완료 항목 → 팝업 열 때 기본 행으로 셋팅
   const lastWeekIncomplete = userProfile.name
@@ -1662,17 +1718,22 @@ export function WeeklySyncPage() {
     setEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
-  const handleAddNotice = (content: string) => {
-    const now = new Date();
-    const createdAt = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    setNotices((prev) => [
-      ...prev,
-      { id: String(Date.now()), content, createdAt },
-    ]);
+  const handleAddNotice = async (content: string, startAt: string, endAt: string) => {
+    try {
+      await createNotice({ content, start_at: startAt, end_at: endAt });
+      await refreshNotices();
+    } catch {
+      // ignore
+    }
   };
 
-  const handleDeleteNotice = (id: string) => {
-    setNotices((prev) => prev.filter((n) => n.id !== id));
+  const handleDeleteNotice = async (id: number) => {
+    try {
+      await deleteNotice(id);
+      await refreshNotices();
+    } catch {
+      // ignore
+    }
   };
 
   const totalCount = entries.length;
@@ -1728,7 +1789,7 @@ export function WeeklySyncPage() {
       )}
       {showNotification && (
         <NotificationPanel
-          notices={notices}
+          notices={activeNotices}
           onClose={() => setShowNotification(false)}
         />
       )}
@@ -1828,7 +1889,7 @@ export function WeeklySyncPage() {
               title="공지사항 알림"
             >
               <Bell size={16} />
-              {notices.length > 0 && (
+              {activeNotices.length > 0 && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
               )}
             </button>
@@ -1867,20 +1928,20 @@ export function WeeklySyncPage() {
           {activeView === 'dashboard' && (
           <>
           {/* Notice banner */}
-          {notices.length > 0 && (
+          {activeNotices.length > 0 && (
             <div
               className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 flex items-start gap-3 cursor-pointer hover:bg-orange-100 transition-colors"
-              onClick={() => setShowNotice(true)}
+              onClick={() => setShowNotification(true)}
             >
               <Megaphone size={15} className="text-orange-500 mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 <span className="text-xs font-bold text-orange-600 mr-2">공지</span>
                 <span className="text-xs text-orange-700 line-clamp-1">
-                  {notices[notices.length - 1].content}
+                  {activeNotices[activeNotices.length - 1].content}
                 </span>
               </div>
               <span className="text-[10px] text-orange-400 shrink-0">
-                총 {notices.length}건
+                총 {activeNotices.length}건
               </span>
             </div>
           )}

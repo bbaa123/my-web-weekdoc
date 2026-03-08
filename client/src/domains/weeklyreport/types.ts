@@ -34,3 +34,21 @@ export interface QuickFeedbackData {
   reportId: string;
   comment?: string;
 }
+
+export interface NoticeItem {
+  id: number;
+  authorId: number;
+  authorName: string;
+  seqNo: number;
+  content: string;
+  startAt: string;
+  endAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NoticeCreateData {
+  content: string;
+  start_at: string;
+  end_at: string;
+}
