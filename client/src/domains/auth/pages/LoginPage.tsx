@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, Lock, User, CalendarDays, UserPlus } from 'lucide-react';
+import { LogIn, Lock, User, CalendarDays, UserPlus, Shield } from 'lucide-react';
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
 
@@ -10,6 +10,7 @@ export function LoginPage() {
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,7 +18,7 @@ export function LoginPage() {
     try {
       await loginById(loginId, password);
       toast.success('로그인 성공!');
-      navigate('/dashboard');
+      navigate(isAdmin ? '/admin' : '/dashboard');
     } catch (err: unknown) {
       const msg =
         err && typeof err === 'object' && 'message' in err
@@ -92,14 +93,51 @@ export function LoginPage() {
                 </div>
               </div>
 
+              {/* 관리자 체크박스 */}
+              <label
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all select-none ${
+                  isAdmin
+                    ? 'bg-amber-50 border-amber-300 text-amber-700'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-slate-300'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isAdmin}
+                  onChange={(e) => setIsAdmin(e.target.checked)}
+                  className="hidden"
+                />
+                <div
+                  className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-all flex-shrink-0 ${
+                    isAdmin
+                      ? 'bg-amber-500 border-amber-500'
+                      : 'bg-white border-slate-300'
+                  }`}
+                >
+                  {isAdmin && (
+                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+                <Shield size={15} className={isAdmin ? 'text-amber-500' : 'text-slate-400'} />
+                <span className="text-sm font-semibold">
+                  관리자로 로그인 (전체 대시보드 보기)
+                </span>
+              </label>
+
               {/* 로그인 버튼 */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-orange-500 text-white font-bold rounded-xl hover:bg-orange-600 active:scale-95 transition-all shadow-md shadow-orange-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                className={`w-full flex items-center justify-center gap-2 px-6 py-3.5 text-white font-bold rounded-xl active:scale-95 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed ${
+                  isAdmin
+                    ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200'
+                    : 'bg-orange-500 hover:bg-orange-600 shadow-orange-200'
+                }`}
               >
                 <LogIn size={16} />
-                {loading ? '로그인 중...' : '로그인'}
+                {loading ? '로그인 중...' : isAdmin ? '관리자 로그인' : '로그인'}
               </button>
             </form>
 
