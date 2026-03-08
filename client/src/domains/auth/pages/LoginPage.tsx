@@ -17,7 +17,7 @@ export function LoginPage() {
     try {
       await loginById(loginId, password);
       toast.success('로그인 성공!');
-      navigate('/dashboard');
+      navigate('/weekly-sync');
     } catch (err: unknown) {
       const msg =
         err && typeof err === 'object' && 'message' in err
