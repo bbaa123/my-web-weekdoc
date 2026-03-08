@@ -116,7 +116,7 @@ function App() {
           path="/weekly-sync"
           element={<WeeklySyncRoute />}
         />
-        <Route path="/" element={<Navigate to="/weekly-sync" replace />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route
           path="/landing"
           element={
@@ -296,7 +296,7 @@ function App() {
       </div>
           }
         />
-        <Route path="*" element={<Navigate to="/weekly-sync" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </>
   );
