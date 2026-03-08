@@ -1,5 +1,5 @@
 import { apiClient } from '@/core/api';
-import type { WeeklyReport, ReportFormData, QuickFeedbackData } from './types';
+import type { WeeklyReport, ReportFormData, QuickFeedbackData, NoticeItem, NoticeCreateData } from './types';
 
 export const fetchReports = () =>
   apiClient.get<WeeklyReport[]>('/v1/weekly-reports');
@@ -20,3 +20,16 @@ export const submitQuickFeedback = (data: QuickFeedbackData) =>
   apiClient.post<WeeklyReport>(`/v1/weekly-reports/${data.reportId}/feedback`, {
     comment: data.comment,
   });
+
+// Notice API
+export const fetchNotices = () =>
+  apiClient.get<NoticeItem[]>('/v1/notices');
+
+export const fetchActiveNotices = () =>
+  apiClient.get<NoticeItem[]>('/v1/notices/active');
+
+export const createNotice = (data: NoticeCreateData) =>
+  apiClient.post<NoticeItem>('/v1/notices', data);
+
+export const deleteNotice = (id: number) =>
+  apiClient.delete(`/v1/notices/${id}`);
