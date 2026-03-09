@@ -25,6 +25,10 @@ engine = create_async_engine(
     pool_size=settings.DB_POOL_SIZE,
     max_overflow=settings.DB_MAX_OVERFLOW,
     pool_pre_ping=True,  # 연결 유효성 자동 검사
+    connect_args={
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0
+    },
 )
 
 # ====================

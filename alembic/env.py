@@ -6,7 +6,15 @@ It loads database configuration from .env file and supports both online and offl
 
 import asyncio
 import os
+import sys
 from logging.config import fileConfig
+from pathlib import Path
+
+# 프로젝트 루트 디렉토리를 sys.path에 추가
+# (alembic/ 폴더의 부모 = 프로젝트 루트)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from alembic import context
 from dotenv import load_dotenv
