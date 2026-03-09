@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
+import { getCurrentWeekInfo } from '@/core/utils/date';
 import {
   fetchWeeklyReports,
   createWeeklyReports,
@@ -713,10 +714,12 @@ export function WeeklySyncPage() {
   const [showNewModal, setShowNewModal] = useState(false);
   const [page, setPage] = useState(1);
 
-  // 필터 상태
-  const [filterYear, setFilterYear] = useState('');
-  const [filterMonth, setFilterMonth] = useState('');
-  const [filterWeek, setFilterWeek] = useState('');
+  // 필터 상태 (현재 연도·월·주차를 기본값으로 설정)
+  const { year: currentYear, month: currentMonth, weekNumber: currentWeekNumber } =
+    getCurrentWeekInfo();
+  const [filterYear, setFilterYear] = useState(currentYear);
+  const [filterMonth, setFilterMonth] = useState(currentMonth);
+  const [filterWeek, setFilterWeek] = useState(currentWeekNumber);
   const [filterCategory, setFilterCategory] = useState('');
   const [filterCompany, setFilterCompany] = useState('');
 
