@@ -27,3 +27,10 @@ class WeeklyReportRepository:
             .order_by(WeeklyReport.submitted_at.desc())
         )
         return list(result.scalars().all())
+
+    async def create(self, report: WeeklyReport) -> WeeklyReport:
+        """주간보고 등록"""
+        self.db.add(report)
+        await self.db.commit()
+        await self.db.refresh(report)
+        return report

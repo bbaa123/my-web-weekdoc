@@ -2,12 +2,12 @@
 WeeklyReport 엔드포인트
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.core.dependencies import get_current_login_user, get_database_session
 from server.app.domain.login.models.login import Login
-from server.app.domain.weekly_reports.schemas.weekly_report_schemas import WeeklyReportResponse
+from server.app.domain.weekly_reports.schemas.weekly_report_schemas import WeeklyReportCreate, WeeklyReportResponse
 from server.app.domain.weekly_reports.service import WeeklyReportService
 
 router = APIRouter(prefix="/weekly-reports", tags=["weekly-reports"])
@@ -24,3 +24,18 @@ async def list_reports(
 ) -> list[WeeklyReportResponse]:
     service = WeeklyReportService(db)
     return await service.list_reports(current_login)
+
+
+@router.post(
+    "",
+    response_model=WeeklyReportResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="주간보고 등록",
+)
+async def create_report(
+    body: WeeklyReportCreate,
+    current_login: Login = Depends(get_current_login_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> WeeklyReportResponse:
+    service = WeeklyReportService(db)
+    return await service.create_report(body, current_login)

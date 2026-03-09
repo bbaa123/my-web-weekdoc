@@ -16,3 +16,18 @@ export interface WeeklyReport {
   submitted_at: string | null;
   feedback: string | null;
 }
+
+export interface WeeklyReportCreate {
+  year: string;
+  month: string;
+  week_number: string;
+  company?: string;
+  work_type?: string;
+  project_name?: string;
+  this_week?: string;
+  next_week?: string;
+  progress: number;
+  priority?: string;
+  issues?: string;
+  status?: string;
+}
