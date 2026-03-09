@@ -868,7 +868,7 @@ export function WeeklySyncPage() {
 
   return (
     <div
-      className="min-h-screen bg-slate-50"
+      className="min-h-screen bg-orange-50"
       style={{ paddingTop: isBarVisible ? NOTICE_BAR_HEIGHT : 0 }}
     >
       {/* ── 상단 공지 알림 바 ─────────────────────────────── */}
