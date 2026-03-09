@@ -1,18 +1,30 @@
 /**
  * 현재 날짜 기준으로 연도, 월, 주차를 계산합니다.
- * 월요일 시작 기준으로 해당 월의 몇 번째 주인지 계산합니다.
+ * 월요일 시작 기준: 해당 월의 첫 번째 월요일부터 주차를 셉니다.
+ * 첫 번째 월요일 이전 날짜는 1주차로 처리합니다.
  */
 export function getCurrentWeekInfo(): { year: string; month: string; weekNumber: string } {
   const now = new Date();
-  const year = now.getFullYear().toString();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const dayOfMonth = now.getDate();
 
-  // 월 첫째 날의 요일 (월요일=0, 화요일=1, ..., 일요일=6)
-  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const firstDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
+  const firstDay = new Date(year, month, 1);
+  const firstDayOfWeek = firstDay.getDay(); // 0=일, 1=월, ..., 6=토
 
-  // (현재 일 + 첫째 날의 오프셋) / 7 로 주차 계산
-  const weekNumber = Math.ceil((now.getDate() + firstDayOfWeek) / 7);
+  // 이 달의 첫 번째 월요일까지의 오프셋 (1일이 월요일이면 0)
+  const daysToFirstMonday = firstDayOfWeek === 1 ? 0 : (8 - firstDayOfWeek) % 7;
+  const firstMondayDate = 1 + daysToFirstMonday;
 
-  return { year, month, weekNumber: `${weekNumber}주차` };
+  // 첫 번째 월요일 이전 날짜는 1주차로 처리
+  const weekNum =
+    dayOfMonth < firstMondayDate
+      ? 1
+      : Math.min(Math.floor((dayOfMonth - firstMondayDate) / 7) + 1, 5);
+
+  return {
+    year: String(year),
+    month: String(month + 1).padStart(2, '0'),
+    weekNumber: `${weekNum}주차`,
+  };
 }
