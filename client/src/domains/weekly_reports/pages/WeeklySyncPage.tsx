@@ -822,7 +822,7 @@ export function WeeklySyncPage() {
       {/* ── 왼쪽 고정 Users 버튼 ─────────────────────────── */}
       <button
         onClick={() => setShowUserPanel(true)}
-        className="fixed left-0 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-1.5 py-4 px-2.5 rounded-r-xl shadow-lg text-white text-[10px] font-bold transition-all hover:px-4 active:scale-95"
+        className="fixed left-0 top-[calc(50%-5rem)] z-30 flex flex-col items-center gap-1.5 py-4 px-2.5 rounded-r-xl shadow-lg text-white text-[10px] font-bold transition-all hover:px-4 active:scale-95"
         style={{ backgroundColor: BRAND }}
         title="사용자 관리"
       >
