@@ -5,6 +5,7 @@ import {
   LogOut,
   Shield,
   User,
+  Users,
   Loader2,
   FileText,
   AlertTriangle,
@@ -19,6 +20,7 @@ import {
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
 import { getCurrentWeekInfo } from '@/core/utils/date';
+import { UserManagementPanel } from '@/domains/users/components/UserManagementPanel';
 import {
   fetchWeeklyReports,
   createWeeklyReports,
@@ -712,6 +714,7 @@ export function WeeklySyncPage() {
   const [loading, setLoading] = useState(true);
   const [editTarget, setEditTarget] = useState<WeeklyReport | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
+  const [showUserPanel, setShowUserPanel] = useState(false);
   const [page, setPage] = useState(1);
 
   // 필터 상태 (현재 연도·월·주차를 기본값으로 설정)
@@ -812,6 +815,25 @@ export function WeeklySyncPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {/* ── 사용자 관리 패널 ──────────────────────────────── */}
+      <UserManagementPanel isOpen={showUserPanel} onClose={() => setShowUserPanel(false)} />
+
+      {/* ── 왼쪽 고정 Users 버튼 ─────────────────────────── */}
+      <button
+        onClick={() => setShowUserPanel(true)}
+        className="fixed left-0 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-1.5 py-4 px-2.5 rounded-r-xl shadow-lg text-white text-[10px] font-bold transition-all hover:px-4 active:scale-95"
+        style={{ backgroundColor: BRAND }}
+        title="사용자 관리"
+      >
+        <Users size={16} />
+        <span
+          className="writing-mode-vertical"
+          style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', letterSpacing: '0.05em' }}
+        >
+          Users
+        </span>
+      </button>
+
       {/* ── 헤더 ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm">
         <div className="max-w-[1400px] mx-auto px-6 py-3 flex items-center justify-between">
