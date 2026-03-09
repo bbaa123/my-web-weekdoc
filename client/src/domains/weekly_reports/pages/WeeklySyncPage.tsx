@@ -21,6 +21,7 @@ import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
 import { getCurrentWeekInfo } from '@/core/utils/date';
 import { UserManagementPanel } from '@/domains/users/components/UserManagementPanel';
+import { NoticePanel } from '@/domains/notice/components/NoticePanel';
 import {
   fetchWeeklyReports,
   createWeeklyReports,
@@ -1242,6 +1243,9 @@ export function WeeklySyncPage() {
           onSuccess={loadReports}
         />
       )}
+
+      {/* ── 공지사항 슬라이드 패널 ─────────────────────────── */}
+      <NoticePanel />
     </div>
   );
 }
