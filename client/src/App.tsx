@@ -1,20 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Link, Navigate } from 'react-router-dom';
 import axios from 'axios';
-import { Activity, Zap, ArrowRight, Database, FileCode, BookOpen, Layers, Layout, Code, ClipboardList, LayoutDashboard, CalendarDays } from 'lucide-react';
+import { Activity, Zap, ArrowRight, Database, FileCode, BookOpen, Layers, Layout, Code } from 'lucide-react';
 import { LoadingOverlay } from './core/loading';
 import { DocumentViewer } from './components/DocumentViewer';
 import { checkDatabaseConnection } from './domains/system/api';
 import { toast } from './core/utils/toast';
-import { MemberReportPage, AdminDashboardPage, WeeklySyncPage, DashboardPage } from './domains/weeklyreport';
-import { LoginPage, RegisterPage, WeeklySyncLoginPage } from './domains/auth';
-import { PrivateRoute } from './core/auth/PrivateRoute';
-import { useAuthStore } from './core/store/useAuthStore';
-
-function WeeklySyncRoute() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  return isAuthenticated ? <WeeklySyncPage /> : <WeeklySyncLoginPage />;
-}
+import { LoginPage, RegisterPage } from './domains/auth';
 
 interface DocumentConfig {
   title: string;
@@ -100,23 +92,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route
-          path="/report"
-          element={<PrivateRoute><MemberReportPage /></PrivateRoute>}
-        />
-        <Route
-          path="/dashboard"
-          element={<PrivateRoute><DashboardPage /></PrivateRoute>}
-        />
-        <Route
-          path="/admin"
-          element={<PrivateRoute><AdminDashboardPage /></PrivateRoute>}
-        />
-        <Route
-          path="/weekly-sync"
-          element={<WeeklySyncRoute />}
-        />
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Navigate to="/landing" replace />} />
         <Route
           path="/landing"
           element={
@@ -144,18 +120,6 @@ function App() {
                 <BookOpen size={16} />
                 개발 가이드
               </button>
-              <Link to="/report" className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
-                <ClipboardList size={16} />
-                주간 보고서
-              </Link>
-              <Link to="/admin" className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors">
-                <LayoutDashboard size={16} />
-                관리자 현황
-              </Link>
-              <Link to="/weekly-sync" className="flex items-center gap-1.5 hover:text-orange-500 transition-colors font-bold text-orange-500">
-                <CalendarDays size={16} />
-                Weekly Sync
-              </Link>
             </div>
 
             <div className="flex items-center gap-4">
@@ -221,27 +185,6 @@ function App() {
               프로젝트 시작하기
               <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </button>
-            <Link
-              to="/report"
-              className="w-full sm:w-auto px-10 py-4 bg-white text-slate-800 text-lg font-bold rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:bg-slate-50 transition-all flex items-center justify-center gap-2 group"
-            >
-              <ClipboardList size={20} />
-              주간 보고서 작성
-            </Link>
-            <Link
-              to="/admin"
-              className="w-full sm:w-auto px-10 py-4 bg-white text-slate-800 text-lg font-bold rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:bg-slate-50 transition-all flex items-center justify-center gap-2 group"
-            >
-              <LayoutDashboard size={20} />
-              관리자 현황
-            </Link>
-            <Link
-              to="/weekly-sync"
-              className="w-full sm:w-auto px-10 py-4 bg-orange-500 text-white text-lg font-bold rounded-2xl shadow-lg shadow-orange-200 hover:shadow-xl hover:bg-orange-600 transition-all flex items-center justify-center gap-2 group"
-            >
-              <CalendarDays size={20} />
-              Weekly Sync
-            </Link>
           </div>
         </section>
 
@@ -296,7 +239,7 @@ function App() {
       </div>
           }
         />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/landing" replace />} />
       </Routes>
     </>
   );
