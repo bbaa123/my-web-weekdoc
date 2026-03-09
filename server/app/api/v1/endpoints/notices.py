@@ -5,8 +5,8 @@ Notice 엔드포인트
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.app.core.dependencies import get_current_user, get_database_session
-from server.app.domain.auth.models.user import User
+from server.app.core.dependencies import get_current_login_user, get_database_session
+from server.app.domain.login.models.login import Login
 from server.app.domain.notice.schemas.notice_schemas import NoticeCreate, NoticeResponse
 from server.app.domain.notice.service import NoticeService
 
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/notices", tags=["notices"])
     summary="전체 공지사항 목록 조회",
 )
 async def list_notices(
-    current_user: User = Depends(get_current_user),
+    current_login: Login = Depends(get_current_login_user),
     db: AsyncSession = Depends(get_database_session),
 ) -> list[NoticeResponse]:
     service = NoticeService(db)
@@ -32,7 +32,7 @@ async def list_notices(
     summary="유효한 공지사항 목록 조회 (종료일 미만료)",
 )
 async def list_active_notices(
-    current_user: User = Depends(get_current_user),
+    current_login: Login = Depends(get_current_login_user),
     db: AsyncSession = Depends(get_database_session),
 ) -> list[NoticeResponse]:
     service = NoticeService(db)
@@ -47,12 +47,12 @@ async def list_active_notices(
 )
 async def create_notice(
     data: NoticeCreate,
-    current_user: User = Depends(get_current_user),
+    current_login: Login = Depends(get_current_login_user),
     db: AsyncSession = Depends(get_database_session),
 ) -> NoticeResponse:
     service = NoticeService(db)
     try:
-        return await service.create_notice(current_user, data)
+        return await service.create_notice(current_login, data)
     except PermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
 
@@ -64,12 +64,12 @@ async def create_notice(
 )
 async def delete_notice(
     notice_id: int,
-    current_user: User = Depends(get_current_user),
+    current_login: Login = Depends(get_current_login_user),
     db: AsyncSession = Depends(get_database_session),
 ) -> None:
     service = NoticeService(db)
     try:
-        await service.delete_notice(current_user, notice_id)
+        await service.delete_notice(current_login, notice_id)
     except PermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     except ValueError as e:
