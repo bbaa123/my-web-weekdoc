@@ -24,20 +24,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # ------------------------------------------------------------------ #
-    # 1. weekly_reports → users FK 제약 조건 제거
-    # ------------------------------------------------------------------ #
-    op.drop_constraint("weekly_reports_author_id_fkey", "weekly_reports", type_="foreignkey")
-
-    # ------------------------------------------------------------------ #
-    # 2. 인덱스 제거
-    # ------------------------------------------------------------------ #
-    op.drop_index("ix_weekly_reports_author_id", table_name="weekly_reports")
-
-    # ------------------------------------------------------------------ #
-    # 3. weekly_reports 테이블 삭제
-    # ------------------------------------------------------------------ #
-    op.drop_table("weekly_reports")
+    # weekly_reports 테이블이 이미 없는 경우를 대비해 IF EXISTS 사용
+    op.execute("ALTER TABLE IF EXISTS weekly_reports DROP CONSTRAINT IF EXISTS weekly_reports_author_id_fkey")
+    op.execute("DROP INDEX IF EXISTS ix_weekly_reports_author_id")
+    op.execute("DROP TABLE IF EXISTS weekly_reports")
 
 
 def downgrade() -> None:

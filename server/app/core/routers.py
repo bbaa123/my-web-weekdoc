@@ -54,15 +54,24 @@ class HealthCheckService:
         Returns:
             Dict: 헬스 상태 정보
                 - status: "ok" | "degraded" | "error"
+                - database: "connected" | "disconnected"
                 - env: 현재 환경 (development, staging, production)
-
-        TODO: 프로덕션에서는 아래 체크 추가
-            - await DatabaseManager.check_connection()
-            - await RedisClient.ping()
-            - await check_external_services()
         """
+        db_status = "disconnected"
+        try:
+            from server.app.core.database import engine
+            from sqlalchemy import text
+            import asyncio
+            
+            async with engine.connect() as conn:
+                await asyncio.wait_for(conn.execute(text("SELECT 1")), timeout=5.0)
+            db_status = "connected"
+        except Exception:
+            db_status = "disconnected"
+
         return {
-            "status": "ok",
+            "status": "ok" if db_status == "connected" else "degraded",
+            "database": db_status,
             "env": settings.ENVIRONMENT,
         }
 

@@ -37,10 +37,10 @@ def upgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS sync_login_to_users()")
 
     # ------------------------------------------------------------------ #
-    # 2. FK 제약 조건 제거 (weekly_reports, notice → users.id)
+    # 2. FK 제약 조건 제거 (notice → users.id)
+    # ※ weekly_reports 테이블은 이 시점에 DB에 존재하지 않으므로 생략
     # ------------------------------------------------------------------ #
-    op.drop_constraint("weekly_reports_author_id_fkey", "weekly_reports", type_="foreignkey")
-    op.drop_constraint("notice_author_id_fkey", "notice", type_="foreignkey")
+    op.drop_constraint("fk_notice_author_id_users", "notice", type_="foreignkey")
 
     # ------------------------------------------------------------------ #
     # 3. 기존 users 테이블 완전 삭제
@@ -71,7 +71,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("CURRENT_TIMESTAMP"),
         ),
-        sa.PrimaryKeyConstraint("id", name="users_pkey"),
+        sa.PrimaryKeyConstraint("id", name="pk_users"),
         sa.UniqueConstraint("email", name="uq_users_email"),
     )
     op.create_index("ix_users_email", "users", ["email"], unique=True)
@@ -79,15 +79,15 @@ def upgrade() -> None:
     # ------------------------------------------------------------------ #
     # 5. FK 제약 조건 재생성
     # ------------------------------------------------------------------ #
+    # op.create_foreign_key(
+    #     "weekly_reports_author_id_fkey",
+    #     "weekly_reports",
+    #     "users",
+    #     ["author_id"],
+    #     ["id"],
+    # )
     op.create_foreign_key(
-        "weekly_reports_author_id_fkey",
-        "weekly_reports",
-        "users",
-        ["author_id"],
-        ["id"],
-    )
-    op.create_foreign_key(
-        "notice_author_id_fkey",
+        "fk_notice_author_id_users",
         "notice",
         "users",
         ["author_id"],
@@ -141,10 +141,10 @@ def downgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS sync_login_to_users()")
 
     # ------------------------------------------------------------------ #
-    # 2. FK 제약 조건 제거
+    # 2. FK 제약 조건 제거 (notice만)
+    # ※ weekly_reports 테이블은 존재하지 않으므로 생략
     # ------------------------------------------------------------------ #
-    op.drop_constraint("weekly_reports_author_id_fkey", "weekly_reports", type_="foreignkey")
-    op.drop_constraint("notice_author_id_fkey", "notice", type_="foreignkey")
+    op.drop_constraint("fk_notice_author_id_users", "notice", type_="foreignkey")
 
     # ------------------------------------------------------------------ #
     # 3. 재생성된 users 테이블 삭제
@@ -175,22 +175,22 @@ def downgrade() -> None:
             nullable=False,
             server_default=sa.text("now()"),
         ),
-        sa.PrimaryKeyConstraint("id", name="users_pkey"),
+        sa.PrimaryKeyConstraint("id", name="pk_users"),
     )
     op.create_index("ix_users_email", "users", ["email"], unique=True)
 
     # ------------------------------------------------------------------ #
     # 5. FK 제약 조건 재생성
     # ------------------------------------------------------------------ #
+    # op.create_foreign_key(
+    #     "weekly_reports_author_id_fkey",
+    #     "weekly_reports",
+    #     "users",
+    #     ["author_id"],
+    #     ["id"],
+    # )
     op.create_foreign_key(
-        "weekly_reports_author_id_fkey",
-        "weekly_reports",
-        "users",
-        ["author_id"],
-        ["id"],
-    )
-    op.create_foreign_key(
-        "notice_author_id_fkey",
+        "fk_notice_author_id_users",
         "notice",
         "users",
         ["author_id"],

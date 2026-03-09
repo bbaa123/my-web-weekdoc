@@ -15,21 +15,36 @@ from sqlalchemy.orm import DeclarativeBase
 
 from server.app.core.config import settings
 
+from sqlalchemy.pool import NullPool
+
 # ====================
-# Database Engine
+# Database Engine Initialization
 # ====================
 
-engine = create_async_engine(
-    str(settings.DATABASE_URL),
-    echo=settings.DB_ECHO,
-    pool_size=settings.DB_POOL_SIZE,
-    max_overflow=settings.DB_MAX_OVERFLOW,
-    pool_pre_ping=True,  # 연결 유효성 자동 검사
-    connect_args={
+# DATABASE_URL 확인
+db_url = str(settings.DATABASE_URL)
+
+# Pgbouncer/Supabase Pooler (6543) 사용 시 최적화 설정
+# Transaction mode에서는 NullPool을 사용하여 애플리케이션 레벨의 풀링을 비활성화하는 것이 좋습니다.
+is_pooler = ":6543" in db_url
+
+engine_kwargs = {
+    "echo": settings.DB_ECHO,
+    "pool_pre_ping": True,
+    "connect_args": {
         "statement_cache_size": 0,
-        "prepared_statement_cache_size": 0
-    },
-)
+        "prepared_statement_cache_size": 0,
+    }
+}
+
+if is_pooler:
+    # Pooler 사용 시 NullPool 권장 (pgbouncer가 이미 풀링을 수행함)
+    engine_kwargs["poolclass"] = NullPool
+else:
+    engine_kwargs["pool_size"] = settings.DB_POOL_SIZE
+    engine_kwargs["max_overflow"] = settings.DB_MAX_OVERFLOW
+
+engine = create_async_engine(db_url, **engine_kwargs)
 
 # ====================
 # Session Factory

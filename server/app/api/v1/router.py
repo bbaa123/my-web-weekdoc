@@ -53,8 +53,21 @@ async def health_check() -> dict:
     Returns:
         dict: API 상태 정보
     """
+    db_status = "disconnected"
+    try:
+        from server.app.core.database import engine
+        from sqlalchemy import text
+        import asyncio
+        
+        async with engine.connect() as conn:
+            await asyncio.wait_for(conn.execute(text("SELECT 1")), timeout=3.0)
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+
     return {
-        "status": "healthy",
+        "status": "healthy" if "error" not in db_status and db_status == "connected" else "unhealthy",
+        "database": db_status,
         "version": "1.0.0",
         "api": "v1",
     }

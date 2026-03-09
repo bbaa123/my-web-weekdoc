@@ -80,10 +80,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     logger.info(f"📦 Environment: {settings.ENVIRONMENT}")
     logger.info(f"🗄️  Database: {settings.POSTGRES_DB}")
 
-    # TODO: 필요한 초기화 작업
-    # - 데이터베이스 마이그레이션 확인
-    # - 캐시 워밍업
-    # - 외부 서비스 연결 확인
+    # 데이터베이스 연결 확인
+    try:
+        from server.app.core.database import engine
+        from sqlalchemy import text
+        import asyncio
+        
+        async with engine.connect() as conn:
+            await asyncio.wait_for(conn.execute(text("SELECT 1")), timeout=10.0)
+        logger.info("✅ Database connection established")
+    except Exception as e:
+        logger.error(f"❌ Database connection failed: {e}")
+        # 필요시 여기서 중단할 수 있음
+        # raise e
 
     # 개발 환경에서는 테이블 자동 생성 (운영에서는 사용 금지!)
     if settings.ENVIRONMENT == "development" and settings.DEBUG:

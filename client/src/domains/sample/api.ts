@@ -19,7 +19,7 @@ export async function fetchSampleItems(
   pageSize: number = 10
 ): Promise<PaginatedResponse<SampleItem>> {
   const response = await apiClient.get<ApiResponse<PaginatedResponse<SampleItem>>>(
-    '/samples',
+    '/api/v1/sample',
     { params: { page, pageSize } }
   );
 
@@ -30,7 +30,7 @@ export async function fetchSampleItems(
  * Sample 아이템 단건 조회
  */
 export async function fetchSampleItem(id: string): Promise<SampleItem> {
-  const response = await apiClient.get<ApiResponse<SampleItem>>(`/samples/${id}`);
+  const response = await apiClient.get<ApiResponse<SampleItem>>(`/api/v1/sample/${id}`);
   return response.data.data;
 }
 
@@ -38,7 +38,7 @@ export async function fetchSampleItem(id: string): Promise<SampleItem> {
  * Sample 아이템 생성
  */
 export async function createSampleItem(data: SampleFormData): Promise<SampleItem> {
-  const response = await apiClient.post<ApiResponse<SampleItem>>('/samples', data);
+  const response = await apiClient.post<ApiResponse<SampleItem>>('/api/v1/sample', data);
   return response.data.data;
 }
 
@@ -50,7 +50,7 @@ export async function updateSampleItem(
   data: Partial<SampleFormData>
 ): Promise<SampleItem> {
   const response = await apiClient.patch<ApiResponse<SampleItem>>(
-    `/samples/${id}`,
+    `/api/v1/sample/${id}`,
     data
   );
   return response.data.data;
@@ -60,5 +60,5 @@ export async function updateSampleItem(
  * Sample 아이템 삭제
  */
 export async function deleteSampleItem(id: string): Promise<void> {
-  await apiClient.delete(`/samples/${id}`);
+  await apiClient.delete(`/api/v1/sample/${id}`);
 }

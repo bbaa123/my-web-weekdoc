@@ -1,11 +1,12 @@
 """Alembic Environment Configuration
 
-This module configures Alembic to work with SQLAlchemy 2.0 async engine.
-It loads database configuration from .env file and supports both online and offline migrations.
+Supabase Transaction Pooler(pgbouncer) 환경에서 asyncpg를 직접 사용하여
+prepared statement 충돌 없이 마이그레이션을 실행합니다.
 """
 
 import asyncio
 import os
+import re
 import sys
 from logging.config import fileConfig
 from pathlib import Path
@@ -19,8 +20,6 @@ if str(PROJECT_ROOT) not in sys.path:
 from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import pool
-from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # Load environment variables from .env file
 load_dotenv()
@@ -38,7 +37,6 @@ from server.app.core.database import Base  # noqa: E402
 
 # Import all domain models to register them with Base.metadata
 from server.app.domain.auth.models.user import User  # noqa: F401
-from server.app.domain.weeklyreport.models.weekly_report import WeeklyReport  # noqa: F401
 from server.app.domain.login.models.login import Login  # noqa: F401
 from server.app.domain.notice.models.notice import Notice  # noqa: F401
 
@@ -55,42 +53,15 @@ if database_url:
 
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
-
-    This configures the context with just a URL and not an Engine,
-    though an Engine is acceptable here as well. By skipping the Engine creation
-    we don't even need a DBAPI to be available.
-
-    Calls to context.execute() here emit the given string to the script output.
-    """
+    """Run migrations in 'offline' mode."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        compare_type=True,  # Detect column type changes
-        compare_server_default=True,  # Detect default value changes
-    )
-
-    with context.begin_transaction():
-        context.run_migrations()
-
-
-def do_run_migrations(connection: Connection) -> None:
-    """Execute migrations with the given connection.
-
-    Args:
-        connection: SQLAlchemy connection object
-    """
-    context.configure(
-        connection=connection,
-        target_metadata=target_metadata,
-        compare_type=True,  # Detect column type changes
-        compare_server_default=True,  # Detect default value changes
-        # Include schemas if using multi-schema setup
-        # include_schemas=True,
-        # version_table_schema=target_metadata.schema,
+        compare_type=True,
+        compare_server_default=True,
     )
 
     with context.begin_transaction():
@@ -98,35 +69,80 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    """Run migrations in 'online' mode with async engine.
+    """Run migrations using asyncpg directly to bypass pgbouncer prepared statement issues.
 
-    In this scenario we need to create an Engine and associate a connection with the context.
-    This is the recommended approach for SQLAlchemy 2.0 async applications.
+    Supabase Transaction Pooler(pgbouncer, port 6543)는 prepared statement를 지원하지 않아
+    SQLAlchemy asyncpg dialect 초기화(setup_asyncpg_json_codec 등)에서 오류가 발생합니다.
+    asyncpg를 직접 연결하고 Alembic migration을 실행합니다.
     """
-    # Get configuration for async engine
-    configuration = config.get_section(config.config_ini_section, {})
+    import asyncpg
 
-    # Create async engine
-    connectable = async_engine_from_config(
-        configuration,
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,  # Don't use connection pooling for migrations
+    raw_url = config.get_main_option("sqlalchemy.url")
+
+    # postgresql+asyncpg://user:pass@host:port/db 에서 접속 정보 추출
+    m = re.match(r"postgresql\+asyncpg://([^:]+):([^@]+)@([^:]+):(\d+)/([^?]+)", raw_url)
+    if not m:
+        raise ValueError(f"Cannot parse DATABASE_URL: {raw_url}")
+    db_user = m.group(1)
+    db_pass = m.group(2)
+    db_host = m.group(3)
+    db_port = int(m.group(4))
+    db_name = m.group(5)
+
+    # asyncpg 직접 연결 (statement_cache_size=0 → pgbouncer 완전 호환)
+    conn = await asyncpg.connect(
+        user=db_user,
+        password=db_pass,
+        host=db_host,
+        port=db_port,
+        database=db_name,
+        statement_cache_size=0,
     )
 
-    async with connectable.connect() as connection:
-        # Run migrations synchronously within async context
-        await connection.run_sync(do_run_migrations)
+    try:
+        # SQLAlchemy engine을 통해 migration_context 구성
 
-    # Dispose engine
-    await connectable.dispose()
+        def run_migrations(sync_conn):
+            context.configure(
+                connection=sync_conn,
+                target_metadata=target_metadata,
+                compare_type=True,
+                compare_server_default=True,
+            )
+
+            with context.begin_transaction():
+                context.run_migrations()
+
+        # asyncpg에서 psycopg2-compat blocking connection을 통해 실행
+        from sqlalchemy.ext.asyncio import create_async_engine
+
+        # Session Pooler 또는 Direct Connection을 위해 포트 전환 시도
+        # Transaction Pooler(6543) → Session Pooler(5432)
+        session_url = raw_url.replace(f":{db_port}/", ":5432/")
+        if session_url == raw_url:
+            # 포트가 이미 5432이거나 다른 경우 그냥 진행
+            pass
+
+        # 재시도: Session Pooler URL(5432)로 SQLAlchemy engine 사용
+        from sqlalchemy.engine import make_url
+        sa_url = make_url(session_url)
+        sa_url = sa_url.update_query_dict({"prepared_statement_cache_size": "0"})
+
+        engine = create_async_engine(
+            sa_url,
+            poolclass=pool.NullPool,
+        )
+
+        async with engine.connect() as connection:
+            await connection.run_sync(run_migrations)
+
+        await engine.dispose()
+    finally:
+        await conn.close()
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
-
-    Creates an async engine and runs migrations asynchronously.
-    This is the standard mode for production deployments.
-    """
+    """Run migrations in 'online' mode."""
     asyncio.run(run_async_migrations())
 
 

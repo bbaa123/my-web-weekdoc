@@ -30,17 +30,17 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # ------------------------------------------------------------------ #
-    # 1. FK 제약 조건 제거 (weekly_reports, notice → users.id)
+    # 1. FK 제약 조건 제거 (notice → users.id)
+    # ※ weekly_reports 테이블은 이 시점에 DB에 존재하지 않으므로 생략
     # ------------------------------------------------------------------ #
-    op.drop_constraint("weekly_reports_author_id_fkey", "weekly_reports", type_="foreignkey")
-    op.drop_constraint("notice_author_id_fkey", "notice", type_="foreignkey")
+    op.drop_constraint("fk_notice_author_id_users", "notice", type_="foreignkey")
 
     # ------------------------------------------------------------------ #
     # 2. users 테이블 PK 제약 조건 제거 후 id 컬럼 타입 변경
     # ------------------------------------------------------------------ #
-    op.drop_constraint("users_pkey", "users", type_="primary")
+    op.drop_constraint("pk_users", "users", type_="primary")
     op.execute("ALTER TABLE users ALTER COLUMN id TYPE VARCHAR(255) USING id::VARCHAR")
-    op.create_primary_key("users_pkey", "users", ["id"])
+    op.create_primary_key("pk_users", "users", ["id"])
 
     # ------------------------------------------------------------------ #
     # 3. users 테이블 컬럼 변경
@@ -61,31 +61,18 @@ def upgrade() -> None:
     op.drop_column("users", "is_active")
 
     # ------------------------------------------------------------------ #
-    # 4. weekly_reports.author_id 타입 변경 (Integer → VARCHAR(255))
-    # ------------------------------------------------------------------ #
-    op.execute(
-        "ALTER TABLE weekly_reports ALTER COLUMN author_id TYPE VARCHAR(255) USING author_id::VARCHAR"
-    )
-
-    # ------------------------------------------------------------------ #
-    # 5. notice.author_id 타입 변경 (Integer → VARCHAR(255))
+    # 4. notice.author_id 타입 변경 (Integer → VARCHAR(255))
     # ------------------------------------------------------------------ #
     op.execute(
         "ALTER TABLE notice ALTER COLUMN author_id TYPE VARCHAR(255) USING author_id::VARCHAR"
     )
 
     # ------------------------------------------------------------------ #
-    # 6. FK 제약 조건 재생성
+    # 5. FK 제약 조건 재생성 (notice만)
+    # ※ weekly_reports 테이블은 존재하지 않으므로 생략
     # ------------------------------------------------------------------ #
     op.create_foreign_key(
-        "weekly_reports_author_id_fkey",
-        "weekly_reports",
-        "users",
-        ["author_id"],
-        ["id"],
-    )
-    op.create_foreign_key(
-        "notice_author_id_fkey",
+        "fk_notice_author_id_users",
         "notice",
         "users",
         ["author_id"],
@@ -131,17 +118,14 @@ def downgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS sync_login_to_users()")
 
     # ------------------------------------------------------------------ #
-    # 2. FK 제약 조건 제거
+    # 2. FK 제약 조건 제거 (notice만)
+    # ※ weekly_reports 테이블은 존재하지 않으므로 생략
     # ------------------------------------------------------------------ #
-    op.drop_constraint("weekly_reports_author_id_fkey", "weekly_reports", type_="foreignkey")
-    op.drop_constraint("notice_author_id_fkey", "notice", type_="foreignkey")
+    op.drop_constraint("fk_notice_author_id_users", "notice", type_="foreignkey")
 
     # ------------------------------------------------------------------ #
-    # 3. weekly_reports.author_id, notice.author_id 타입 복원
+    # 3. notice.author_id 타입 복원
     # ------------------------------------------------------------------ #
-    op.execute(
-        "ALTER TABLE weekly_reports ALTER COLUMN author_id TYPE INTEGER USING author_id::INTEGER"
-    )
     op.execute(
         "ALTER TABLE notice ALTER COLUMN author_id TYPE INTEGER USING author_id::INTEGER"
     )
@@ -168,22 +152,16 @@ def downgrade() -> None:
     op.alter_column("users", "position", nullable=False)
 
     # id 타입 복원 (VARCHAR → Integer)
-    op.drop_constraint("users_pkey", "users", type_="primary")
+    op.drop_constraint("pk_users", "users", type_="primary")
     op.execute("ALTER TABLE users ALTER COLUMN id TYPE INTEGER USING id::INTEGER")
-    op.create_primary_key("users_pkey", "users", ["id"])
+    op.create_primary_key("pk_users", "users", ["id"])
 
     # ------------------------------------------------------------------ #
-    # 5. FK 제약 조건 재생성
+    # 5. FK 제약 조건 재생성 (notice만)
+    # ※ weekly_reports 테이블은 존재하지 않으므로 생략
     # ------------------------------------------------------------------ #
     op.create_foreign_key(
-        "weekly_reports_author_id_fkey",
-        "weekly_reports",
-        "users",
-        ["author_id"],
-        ["id"],
-    )
-    op.create_foreign_key(
-        "notice_author_id_fkey",
+        "fk_notice_author_id_users",
         "notice",
         "users",
         ["author_id"],

@@ -11,6 +11,6 @@ import type { DBCheckResponse } from './types';
  * @returns DB 연결 테스트 결과
  */
 export const checkDatabaseConnection = async (): Promise<DBCheckResponse> => {
-  const response = await apiClient.get<DBCheckResponse>('/v1/system/db-check');
+  const response = await apiClient.get<DBCheckResponse>('/api/v1/system/db-check');
   return response.data;
 };

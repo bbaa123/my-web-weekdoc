@@ -66,7 +66,7 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (email: string, password: string) => {
         const response = await apiClient.post<{ access_token: string; user: User }>(
-          '/v1/auth/login',
+          '/api/v1/auth/login',
           { email, password }
         );
         const { access_token, user } = response.data;
@@ -75,7 +75,7 @@ export const useAuthStore = create<AuthState>()(
 
       loginById: async (loginId: string, password: string) => {
         const response = await apiClient.post<{ access_token: string; user: LoginUserResponse }>(
-          '/v1/login-auth/login',
+          '/api/v1/login-auth/login',
           { id: loginId, password }
         );
         const { access_token, user } = response.data;
@@ -95,7 +95,7 @@ export const useAuthStore = create<AuthState>()(
 
       register: async (data: RegisterData) => {
         const response = await apiClient.post<{ access_token: string; user: User }>(
-          '/v1/auth/register',
+          '/api/v1/auth/register',
           data
         );
         const { access_token, user } = response.data;
@@ -104,7 +104,7 @@ export const useAuthStore = create<AuthState>()(
 
       registerLoginUser: async (data: LoginRegisterData) => {
         const response = await apiClient.post<{ access_token: string; user: LoginUserResponse }>(
-          '/v1/login-auth/register',
+          '/api/v1/login-auth/register',
           data
         );
         const { access_token, user } = response.data;
