@@ -82,13 +82,33 @@ interface FormRow {
   issues: string;
 }
 
+// 월요일 시작 기준으로 이번 달 몇 주차인지 계산
+function getWeekOfMonth(date: Date): string {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const dayOfMonth = date.getDate();
+
+  const firstDay = new Date(year, month, 1);
+  const firstDayOfWeek = firstDay.getDay(); // 0=일, 1=월, ..., 6=토
+
+  // 이 달의 첫 번째 월요일까지의 오프셋 (월요일이면 0)
+  const daysToFirstMonday = firstDayOfWeek === 1 ? 0 : (8 - firstDayOfWeek) % 7;
+  const firstMondayDate = 1 + daysToFirstMonday;
+
+  // 첫 번째 월요일 이전 날짜는 1주차로 처리
+  if (dayOfMonth < firstMondayDate) return '1주차';
+
+  const weekNum = Math.min(Math.floor((dayOfMonth - firstMondayDate) / 7) + 1, 5);
+  return `${weekNum}주차`;
+}
+
 function makeEmptyRow(): FormRow {
   const now = new Date();
   return {
     _key: Math.random().toString(36).slice(2),
     year: String(now.getFullYear()),
     month: String(now.getMonth() + 1).padStart(2, '0'),
-    week_number: '1주차',
+    week_number: getWeekOfMonth(now),
     company: '',
     work_type: '',
     project_name: '',
