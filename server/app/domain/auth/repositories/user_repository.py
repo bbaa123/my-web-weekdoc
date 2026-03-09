@@ -31,3 +31,36 @@ class UserRepository:
         await self.db.commit()
         await self.db.refresh(user)
         return user
+
+    async def upsert(
+        self,
+        user_id: str,
+        name: str,
+        email: str,
+        department: Optional[str] = None,
+        position: Optional[str] = None,
+        admin_yn: bool = False,
+    ) -> User:
+        existing = await self.get_by_id(user_id)
+        if existing:
+            existing.name = name
+            existing.email = email
+            existing.department = department
+            existing.position = position
+            existing.admin_yn = admin_yn
+            await self.db.commit()
+            await self.db.refresh(existing)
+            return existing
+        else:
+            user = User(
+                id=user_id,
+                name=name,
+                email=email,
+                department=department,
+                position=position,
+                admin_yn=admin_yn,
+            )
+            self.db.add(user)
+            await self.db.commit()
+            await self.db.refresh(user)
+            return user

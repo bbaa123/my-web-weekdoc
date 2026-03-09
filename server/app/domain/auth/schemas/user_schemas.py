@@ -47,3 +47,25 @@ class UserCreate(BaseModel):
     email: EmailStr
     admin_yn: bool = Field(default=False)
     position: Optional[str] = Field(default=None, max_length=100)
+
+
+class UserUpsertRequest(BaseModel):
+    """사용자 프로필 Upsert 요청"""
+
+    name: str = Field(..., min_length=1, max_length=100)
+    email: EmailStr
+    department: Optional[str] = Field(default=None, max_length=100)
+    position: Optional[str] = Field(default=None, max_length=100)
+    admin_yn: bool = Field(default=False)
+
+
+class UserProfileResponse(BaseModel):
+    """사용자 프로필 응답 (users 테이블 없을 경우 login 기본값 포함)"""
+
+    id: str
+    name: str
+    email: str
+    department: Optional[str] = None
+    position: Optional[str] = None
+    admin_yn: bool = False
+    exists_in_users: bool = False  # users 테이블에 레코드가 있는지 여부
