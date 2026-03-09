@@ -22,6 +22,8 @@ import { toast } from '@/core/utils/toast';
 import { getCurrentWeekInfo } from '@/core/utils/date';
 import { UserManagementPanel } from '@/domains/users/components/UserManagementPanel';
 import { NoticePanel } from '@/domains/notice/components/NoticePanel';
+import { NoticeBar, NOTICE_BAR_HEIGHT } from '@/domains/notice/components/NoticeBar';
+import { useNoticeStore } from '@/domains/notice/store';
 import {
   fetchWeeklyReports,
   createWeeklyReports,
@@ -710,6 +712,8 @@ export function WeeklySyncPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const { notices: barNotices, isDismissed: isBarDismissed } = useNoticeStore();
+  const isBarVisible = !isBarDismissed && barNotices.length > 0;
 
   const [reports, setReports] = useState<WeeklyReport[]>([]);
   const [loading, setLoading] = useState(true);
@@ -815,7 +819,13 @@ export function WeeklySyncPage() {
     .join(' ');
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div
+      className="min-h-screen bg-slate-50"
+      style={{ paddingTop: isBarVisible ? NOTICE_BAR_HEIGHT : 0 }}
+    >
+      {/* ── 상단 공지 알림 바 ─────────────────────────────── */}
+      <NoticeBar />
+
       {/* ── 사용자 관리 패널 ──────────────────────────────── */}
       <UserManagementPanel isOpen={showUserPanel} onClose={() => setShowUserPanel(false)} />
 
@@ -836,7 +846,10 @@ export function WeeklySyncPage() {
       </button>
 
       {/* ── 헤더 ─────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm">
+      <header
+        className="sticky z-40 bg-white border-b border-slate-100 shadow-sm"
+        style={{ top: isBarVisible ? NOTICE_BAR_HEIGHT : 0 }}
+      >
         <div className="max-w-[1400px] mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div

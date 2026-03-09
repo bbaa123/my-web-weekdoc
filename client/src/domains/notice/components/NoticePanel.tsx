@@ -10,6 +10,7 @@ import { Bell, X, Plus, Calendar, Trash2, Loader2, AlertCircle } from 'lucide-re
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
 import { fetchActiveNotices, createNotice, deleteNotice } from '../api';
+import { useNoticeStore } from '../store';
 import type { Notice, NoticeCreate } from '../types';
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
@@ -78,6 +79,7 @@ function NoticeCard({ notice, isAdmin, onDelete }: NoticeCardProps) {
 export function NoticePanel() {
   const { user } = useAuthStore();
   const isAdmin = user?.is_admin ?? false;
+  const noticeStore = useNoticeStore();
 
   const [isOpen, setIsOpen] = useState(false);
   const [notices, setNotices] = useState<Notice[]>([]);
@@ -98,6 +100,8 @@ export function NoticePanel() {
     try {
       const data = await fetchActiveNotices();
       setNotices(data);
+      // 전역 스토어에도 반영하여 NoticeBar와 동기화
+      noticeStore.refresh();
     } catch {
       toast.error('공지사항을 불러오지 못했습니다.');
     } finally {
@@ -145,12 +149,14 @@ export function NoticePanel() {
 
     setSubmitting(true);
     try {
-      await createNotice(payload);
+      const created = await createNotice(payload);
       toast.success('공지사항이 등록되었습니다.');
       setContent('');
       setStartAt('');
       setEndAt('');
-      await loadNotices();
+      // 패널 목록 갱신 + NoticeBar 즉시 반영
+      setNotices((prev) => [...prev, created]);
+      noticeStore.addNotice(created);
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : '공지 등록에 실패했습니다.';
@@ -167,6 +173,8 @@ export function NoticePanel() {
       await deleteNotice(noticeId);
       toast.success('공지사항이 삭제되었습니다.');
       setNotices((prev) => prev.filter((n) => n.notice_id !== noticeId));
+      // NoticeBar에서도 즉시 제거
+      noticeStore.removeNotice(noticeId);
     } catch {
       toast.error('공지 삭제에 실패했습니다.');
     }
@@ -309,7 +317,7 @@ export function NoticePanel() {
                   ) : (
                     <Plus size={15} />
                   )}
-                  추가
+                  등록
                 </button>
               </form>
             </section>
