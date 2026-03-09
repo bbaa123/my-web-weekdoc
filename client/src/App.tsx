@@ -8,6 +8,7 @@ import { checkDatabaseConnection } from './domains/system/api';
 import { toast } from './core/utils/toast';
 import { LoginPage, RegisterPage } from './domains/auth';
 import { WeeklySyncPage } from './domains/weekly_reports/pages/WeeklySyncPage';
+import { PrivateRoute } from './core/auth/PrivateRoute';
 
 interface DocumentConfig {
   title: string;
@@ -93,7 +94,14 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route path="/weekly-sync" element={<WeeklySyncPage />} />
+        <Route
+          path="/weekly-sync"
+          element={
+            <PrivateRoute>
+              <WeeklySyncPage />
+            </PrivateRoute>
+          }
+        />
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route
           path="/landing"
