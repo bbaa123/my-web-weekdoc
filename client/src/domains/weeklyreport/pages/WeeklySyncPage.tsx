@@ -20,6 +20,7 @@ import {
   Megaphone,
   Pencil,
   LogOut,
+  Shield,
 } from 'lucide-react';
 import { useAuthStore } from '@/core/store/useAuthStore';
 import type { NoticeItem } from '../types';
@@ -1736,15 +1737,22 @@ export function WeeklySyncPage() {
     }
   };
 
-  const totalCount = entries.length;
-  const completedCount = entries.filter((e) => e.status === 'COMPLETED').length;
-  const inProgressCount = entries.filter((e) => e.status === 'IN_PROGRESS').length;
-  const issueCount = entries.filter((e) => e.hasIssue).length;
+  // 권한 범위 내 데이터: admin은 전체, 일반 사용자는 본인 항목만
+  const scopeData = isAdmin
+    ? entries
+    : userProfile.name
+    ? entries.filter((e) => e.authorName === userProfile.name)
+    : entries;
+
+  const totalCount = scopeData.length;
+  const completedCount = scopeData.filter((e) => e.status === 'COMPLETED').length;
+  const inProgressCount = scopeData.filter((e) => e.status === 'IN_PROGRESS').length;
+  const issueCount = scopeData.filter((e) => e.hasIssue).length;
   const avgProgress = totalCount > 0
-    ? Math.round(entries.reduce((s, e) => s + e.progress, 0) / totalCount)
+    ? Math.round(scopeData.reduce((s, e) => s + e.progress, 0) / totalCount)
     : 0;
 
-  const filteredData = entries.filter((entry) => {
+  const filteredData = scopeData.filter((entry) => {
     const matchesSearch =
       searchQuery === '' ||
       entry.authorName.includes(searchQuery) ||
@@ -1752,13 +1760,10 @@ export function WeeklySyncPage() {
       entry.company.includes(searchQuery) ||
       entry.thisWeek.includes(searchQuery);
 
-    // 일반 사용자는 본인 항목만 조회, 관리자는 전체 조회
-    const matchesUser = isAdmin || !userProfile.name || entry.authorName === userProfile.name;
-
-    if (activeTab === 'flagged') return matchesSearch && matchesUser && entry.hasIssue;
+    if (activeTab === 'flagged') return matchesSearch && entry.hasIssue;
     if (activeTab === 'myteam')
-      return matchesSearch && matchesUser && ['김민준', '정우진', '이서연'].includes(entry.authorName);
-    return matchesSearch && matchesUser;
+      return matchesSearch && ['김민준', '정우진', '이서연'].includes(entry.authorName);
+    return matchesSearch;
   });
 
   return (
@@ -1864,6 +1869,12 @@ export function WeeklySyncPage() {
             <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
               Weekly
             </span>
+            {isAdmin && (
+              <span className="flex items-center gap-1 text-[10px] font-bold text-orange-600 bg-orange-100 border border-orange-200 px-2 py-0.5 rounded-full">
+                <Shield size={9} />
+                ADMIN
+              </span>
+            )}
           </div>
 
           <div className="relative flex-1 max-w-xs">
@@ -1949,9 +1960,22 @@ export function WeeklySyncPage() {
           {/* Page heading */}
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-xl font-black text-slate-900">Weekly Reporting Dashboard</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-black text-slate-900">Weekly Reporting Dashboard</h1>
+                {isAdmin && (
+                  <span className="flex items-center gap-1 text-xs font-bold text-orange-600 bg-orange-50 border border-orange-200 px-2.5 py-1 rounded-lg">
+                    <Shield size={12} />
+                    전체 조회 모드
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-slate-500 mt-0.5">
-                2026년 3월 1주차 &middot; 총 {totalCount}명 참여
+                2026년 3월 1주차 &middot;{' '}
+                {isAdmin
+                  ? `전체 ${totalCount}건 표시`
+                  : userProfile.name
+                  ? `${userProfile.name}님의 보고서 ${totalCount}건`
+                  : `총 ${totalCount}건 참여`}
               </p>
             </div>
             <button
@@ -2019,7 +2043,9 @@ export function WeeklySyncPage() {
                   Executive Summary &amp; Issue Highlights
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  팀 전체 주간 진도 요약 — 이슈가 있는 항목은 즉시 확인하세요.
+                  {isAdmin
+                    ? '팀 전체 주간 진도 요약 — 이슈가 있는 항목은 즉시 확인하세요.'
+                    : '내 주간 진도 요약 — 이슈가 있는 항목을 확인하세요.'}
                 </p>
               </div>
               <span className="text-xs font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded-lg">
@@ -2045,7 +2071,7 @@ export function WeeklySyncPage() {
                 <p className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
                   Issue Highlights
                 </p>
-                {entries.filter((e) => e.hasIssue).map((entry) => (
+                {scopeData.filter((e) => e.hasIssue).map((entry) => (
                   <div
                     key={entry.id}
                     className="flex items-start gap-3 px-3 py-2 bg-red-50 border border-red-100 rounded-lg"
@@ -2068,18 +2094,22 @@ export function WeeklySyncPage() {
             <div className="flex items-center border-b border-slate-200 px-4">
               {(
                 [
-                  { key: 'all', label: 'All Members', count: entries.length },
+                  {
+                    key: 'all',
+                    label: isAdmin ? 'All Members' : 'My Reports',
+                    count: scopeData.length,
+                  },
                   {
                     key: 'myteam',
                     label: 'My Team',
-                    count: entries.filter((e) =>
+                    count: scopeData.filter((e) =>
                       ['김민준', '정우진', '이서연'].includes(e.authorName)
                     ).length,
                   },
                   {
                     key: 'flagged',
                     label: 'Flagged Issues',
-                    count: entries.filter((e) => e.hasIssue).length,
+                    count: scopeData.filter((e) => e.hasIssue).length,
                   },
                 ] as { key: TabKey; label: string; count: number }[]
               ).map(({ key, label, count }) => (
@@ -2218,7 +2248,8 @@ export function WeeklySyncPage() {
             {/* Table footer */}
             <div className="px-4 py-3 flex items-center justify-between bg-slate-50 border-t border-slate-200">
               <p className="text-xs text-slate-400">
-                {filteredData.length}명 표시 중 (전체 {totalCount}명)
+                {filteredData.length}건 표시 중 (
+                {isAdmin ? `전체 ${totalCount}건` : `내 보고서 ${totalCount}건`})
               </p>
               <p className="text-xs text-slate-400">
                 마지막 업데이트: 2026-03-05 00:00
