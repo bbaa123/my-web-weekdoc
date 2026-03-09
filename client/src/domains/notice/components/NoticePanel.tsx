@@ -179,7 +179,7 @@ export function NoticePanel() {
       {/* ── 고정 트리거 버튼 ─────────────────────────────────────────────── */}
       <button
         onClick={() => setIsOpen((v) => !v)}
-        className="fixed left-0 top-1/2 -translate-y-1/2 z-40 flex items-center gap-1.5 px-2 py-4 rounded-r-xl font-bold text-white text-xs shadow-lg transition-all hover:pl-3 active:scale-95"
+        className="fixed left-0 top-[calc(50%+1rem)] z-40 flex items-center gap-1.5 px-2 py-4 rounded-r-xl font-bold text-white text-xs shadow-lg transition-all hover:pl-3 active:scale-95"
         style={{ backgroundColor: BRAND, writingMode: 'vertical-lr' }}
         title="공지사항 열기"
       >
