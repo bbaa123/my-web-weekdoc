@@ -70,6 +70,29 @@ class WeeklyReportRepository:
         await self.db.refresh(report)
         return report
 
+    async def list_with_author_by_department(self, department: str) -> list:
+        """부서별 주간보고 목록 (작성자 이름·부서 포함, submitted_at 내림차순)"""
+        from server.app.domain.auth.models.user import User
+
+        result = await self.db.execute(
+            select(WeeklyReport, User.name, User.department)
+            .outerjoin(User, WeeklyReport.id == User.id)
+            .where(User.department == department)
+            .order_by(WeeklyReport.submitted_at.desc())
+        )
+        return list(result.all())
+
+    async def list_all_with_author(self) -> list:
+        """전체 주간보고 목록 (작성자 이름·부서 포함, admin용, submitted_at 내림차순)"""
+        from server.app.domain.auth.models.user import User
+
+        result = await self.db.execute(
+            select(WeeklyReport, User.name, User.department)
+            .outerjoin(User, WeeklyReport.id == User.id)
+            .order_by(WeeklyReport.submitted_at.desc())
+        )
+        return list(result.all())
+
     async def delete(self, report: WeeklyReport) -> None:
         """주간보고 삭제"""
         await self.db.delete(report)

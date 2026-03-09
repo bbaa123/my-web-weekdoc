@@ -2,12 +2,15 @@
 WeeklyReport 엔드포인트
 """
 
-from fastapi import APIRouter, Depends
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.core.dependencies import get_current_login_user, get_database_session
 from server.app.domain.login.models.login import Login
 from server.app.domain.weekly_reports.schemas.weekly_report_schemas import (
+    TeamWeeklyReportResponse,
     WeeklyReportCreate,
     WeeklyReportResponse,
     WeeklyReportUpdate,
@@ -28,6 +31,20 @@ async def list_reports(
 ) -> list[WeeklyReportResponse]:
     service = WeeklyReportService(db)
     return await service.list_reports(current_login)
+
+
+@router.get(
+    "/team",
+    response_model=list[TeamWeeklyReportResponse],
+    summary="팀 주간보고 목록 (admin: 전체 또는 특정 부서, 일반: 본인 부서)",
+)
+async def list_team_reports(
+    department: Optional[str] = Query(default=None, description="부서 필터 (admin 전용)"),
+    current_login: Login = Depends(get_current_login_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> list[TeamWeeklyReportResponse]:
+    service = WeeklyReportService(db)
+    return await service.list_team_reports(current_login, department)
 
 
 @router.post(

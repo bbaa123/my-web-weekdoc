@@ -46,3 +46,8 @@ export interface WeeklyReportUpdate {
   issues?: string | null;
   status?: string | null;
 }
+
+export interface TeamWeeklyReport extends WeeklyReport {
+  author_name: string;
+  department: string | null;
+}
