@@ -26,11 +26,12 @@ import { NoticeBar, NOTICE_BAR_HEIGHT } from '@/domains/notice/components/Notice
 import { useNoticeStore } from '@/domains/notice/store';
 import {
   fetchWeeklyReports,
+  fetchTeamReports,
   createWeeklyReports,
   updateWeeklyReport,
   deleteWeeklyReport,
 } from '../api';
-import type { WeeklyReport, WeeklyReportCreate } from '../types';
+import type { TeamWeeklyReport, WeeklyReport, WeeklyReportCreate } from '../types';
 
 // ─── 상수 ───────────────────────────────────────────────────────────────────
 
@@ -716,11 +717,15 @@ export function WeeklySyncPage() {
   const isBarVisible = !isBarDismissed && barNotices.length > 0;
 
   const [reports, setReports] = useState<WeeklyReport[]>([]);
+  const [teamReports, setTeamReports] = useState<TeamWeeklyReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [teamLoading, setTeamLoading] = useState(false);
   const [editTarget, setEditTarget] = useState<WeeklyReport | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [showUserPanel, setShowUserPanel] = useState(false);
   const [page, setPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<'my' | 'team'>('my');
+  const [teamFilterDepartment, setTeamFilterDepartment] = useState('');
 
   // 필터 상태 (현재 연도·월·주차를 기본값으로 설정)
   const { year: currentYear, month: currentMonth, weekNumber: currentWeekNumber } =
@@ -737,6 +742,7 @@ export function WeeklySyncPage() {
       return;
     }
     loadReports();
+    loadTeamReports();
   }, [user]);
 
   const loadReports = async () => {
@@ -751,6 +757,18 @@ export function WeeklySyncPage() {
     }
   };
 
+  const loadTeamReports = async () => {
+    setTeamLoading(true);
+    try {
+      const data = await fetchTeamReports();
+      setTeamReports(data);
+    } catch {
+      toast.error('팀 주간보고를 불러오는 데 실패했습니다.');
+    } finally {
+      setTeamLoading(false);
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/login', { replace: true });
@@ -762,12 +780,20 @@ export function WeeklySyncPage() {
     setFilterWeek('');
     setFilterCategory('');
     setFilterCompany('');
+    setTeamFilterDepartment('');
     setPage(1);
   };
 
-  // 필터 적용
-  const filtered = useMemo(() => {
-    return reports.filter((r) => {
+  // 내 보고서 필터 (admin은 자신의 ID로 client-side 필터)
+  const myReports = useMemo(() => {
+    if (!user?.is_admin) return reports;
+    const loginId = user.login_id ?? '';
+    return reports.filter((r) => r.id === loginId);
+  }, [reports, user]);
+
+  // 내 보고서 필터 적용
+  const myFiltered = useMemo(() => {
+    return myReports.filter((r) => {
       if (filterYear && r.year !== filterYear) return false;
       if (filterMonth && r.month !== filterMonth) return false;
       if (filterWeek && r.week_number !== filterWeek) return false;
@@ -775,12 +801,34 @@ export function WeeklySyncPage() {
       if (filterCompany && r.company !== filterCompany) return false;
       return true;
     });
-  }, [reports, filterYear, filterMonth, filterWeek, filterCategory, filterCompany]);
+  }, [myReports, filterYear, filterMonth, filterWeek, filterCategory, filterCompany]);
 
-  // 필터 변경 시 페이지 초기화
+  // 팀 보고서에서 사용 가능한 부서 목록 (admin용)
+  const availableDepartments = useMemo(() => {
+    return [...new Set(teamReports.map((r) => r.department).filter(Boolean))].sort() as string[];
+  }, [teamReports]);
+
+  // 팀 보고서 필터 적용
+  const teamFiltered = useMemo(() => {
+    return teamReports.filter((r) => {
+      if (teamFilterDepartment && r.department !== teamFilterDepartment) return false;
+      if (filterYear && r.year !== filterYear) return false;
+      if (filterMonth && r.month !== filterMonth) return false;
+      if (filterWeek && r.week_number !== filterWeek) return false;
+      if (filterCategory && r.work_type !== filterCategory) return false;
+      if (filterCompany && r.company !== filterCompany) return false;
+      return true;
+    });
+  }, [teamReports, teamFilterDepartment, filterYear, filterMonth, filterWeek, filterCategory, filterCompany]);
+
+  // 현재 탭 기준 filtered 데이터
+  const filtered = activeTab === 'my' ? myFiltered : teamFiltered;
+  const isTabLoading = activeTab === 'my' ? loading : teamLoading;
+
+  // 필터/탭 변경 시 페이지 초기화
   useEffect(() => {
     setPage(1);
-  }, [filterYear, filterMonth, filterWeek, filterCategory, filterCompany]);
+  }, [activeTab, filterYear, filterMonth, filterWeek, filterCategory, filterCompany, teamFilterDepartment]);
 
   // 요약 통계 (필터 적용된 데이터 기준)
   const summary = useMemo(() => {
@@ -980,6 +1028,61 @@ export function WeeklySyncPage() {
           </div>
         </div>
 
+        {/* ── 탭 바 ─────────────────────────────────────────── */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="flex items-center border-b border-slate-100">
+            <button
+              onClick={() => setActiveTab('my')}
+              className={`relative flex items-center gap-2 px-6 py-3.5 text-sm font-bold transition-colors ${
+                activeTab === 'my' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <User size={15} />
+              내 보고서 (My Reports)
+              {activeTab === 'my' && (
+                <span
+                  className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full"
+                  style={{ backgroundColor: BRAND }}
+                />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('team')}
+              className={`relative flex items-center gap-2 px-6 py-3.5 text-sm font-bold transition-colors ${
+                activeTab === 'team' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <Users size={15} />
+              팀 보고서 (Team Reports)
+              {activeTab === 'team' && (
+                <span
+                  className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full"
+                  style={{ backgroundColor: BRAND }}
+                />
+              )}
+            </button>
+            {/* admin: 팀 보고서 탭에서 부서 필터 */}
+            {activeTab === 'team' && isAdmin && availableDepartments.length > 0 && (
+              <div className="ml-auto px-4 flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">부서</span>
+                <select
+                  value={teamFilterDepartment}
+                  onChange={(e) => setTeamFilterDepartment(e.target.value)}
+                  className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                  style={{ '--tw-ring-color': BRAND } as React.CSSProperties}
+                >
+                  <option value="">전체 부서</option>
+                  {availableDepartments.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* ── Executive Summary ─────────────────────────────── */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
           <div className="flex flex-col lg:flex-row lg:items-start gap-6">
@@ -990,7 +1093,7 @@ export function WeeklySyncPage() {
                   Executive Summary &amp; Issue Highlights
                 </h2>
               </div>
-              {loading ? (
+              {isTabLoading ? (
                 <p className="text-sm text-slate-400">로딩 중...</p>
               ) : filtered.length === 0 ? (
                 <p className="text-sm text-slate-400">조회 결과가 없습니다.</p>
@@ -1036,7 +1139,7 @@ export function WeeklySyncPage() {
             </div>
 
             {/* 완료율 원형 표시 */}
-            {!loading && filtered.length > 0 && (
+            {!isTabLoading && filtered.length > 0 && (
               <div className="flex flex-col items-center gap-1 shrink-0">
                 <div className="relative w-24 h-24">
                   <svg className="w-full h-full -rotate-90" viewBox="0 0 80 80">
@@ -1072,7 +1175,7 @@ export function WeeklySyncPage() {
 
         {/* ── 테이블 ────────────────────────────────────────── */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-          {loading ? (
+          {isTabLoading ? (
             <div className="flex flex-col items-center justify-center py-32 gap-3">
               <Loader2 className="animate-spin" size={32} style={{ color: BRAND }} />
               <p className="text-sm text-slate-400">불러오는 중...</p>
@@ -1089,8 +1192,13 @@ export function WeeklySyncPage() {
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50">
                       <th className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
-                        Member
+                        {activeTab === 'team' ? 'Author' : 'Member'}
                       </th>
+                      {activeTab === 'team' && (
+                        <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                          Department
+                        </th>
+                      )}
                       <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
                         Category
                       </th>
@@ -1112,29 +1220,42 @@ export function WeeklySyncPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {paginated.map((r) => (
+                    {paginated.map((r) => {
+                      const teamRow = activeTab === 'team' ? (r as TeamWeeklyReport) : null;
+                      const displayName = teamRow ? teamRow.author_name || r.id : r.id;
+                      const initials = displayName.slice(0, 2).toUpperCase();
+                      return (
                       <tr
                         key={r.weekly_reports_no}
                         onClick={() => setEditTarget(r)}
                         className="hover:bg-orange-50/40 cursor-pointer transition-colors"
                       >
-                        {/* Member */}
+                        {/* Author / Member */}
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
                             <div
                               className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                               style={{ backgroundColor: BRAND }}
                             >
-                              {r.id.slice(0, 2).toUpperCase()}
+                              {initials}
                             </div>
                             <div>
-                              <p className="font-semibold text-slate-800 text-sm">{r.id}</p>
+                              <p className="font-semibold text-slate-800 text-sm">{displayName}</p>
                               {r.company && (
                                 <p className="text-xs text-slate-400">{r.company}</p>
                               )}
                             </div>
                           </div>
                         </td>
+
+                        {/* Department (팀 보고서 탭 전용) */}
+                        {activeTab === 'team' && (
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <span className="text-xs font-semibold px-2 py-1 bg-slate-100 text-slate-600 rounded-full">
+                              {teamRow?.department ?? '-'}
+                            </span>
+                          </td>
+                        )}
 
                         {/* Category */}
                         <td className="px-4 py-4">
@@ -1170,7 +1291,8 @@ export function WeeklySyncPage() {
                           <ProgressBar value={r.progress ?? 0} />
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1244,7 +1366,7 @@ export function WeeklySyncPage() {
       {showNewModal && (
         <NewReportModal
           onClose={() => setShowNewModal(false)}
-          onSuccess={loadReports}
+          onSuccess={() => { loadReports(); loadTeamReports(); }}
         />
       )}
 
@@ -1253,7 +1375,7 @@ export function WeeklySyncPage() {
         <EditReportModal
           report={editTarget}
           onClose={() => setEditTarget(null)}
-          onSuccess={loadReports}
+          onSuccess={() => { loadReports(); loadTeamReports(); }}
         />
       )}
 

@@ -63,3 +63,10 @@ class WeeklyReportUpdate(BaseModel):
     priority: Optional[str] = None
     issues: Optional[str] = None
     status: Optional[str] = None
+
+
+class TeamWeeklyReportResponse(WeeklyReportResponse):
+    """팀 주간보고 응답 (작성자 이름 및 부서 포함)"""
+
+    author_name: str = ""
+    department: Optional[str] = None

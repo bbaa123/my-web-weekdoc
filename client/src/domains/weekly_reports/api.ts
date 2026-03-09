@@ -1,8 +1,16 @@
 import { apiClient } from '@/core/api/client';
-import type { WeeklyReport, WeeklyReportCreate, WeeklyReportUpdate } from './types';
+import type { TeamWeeklyReport, WeeklyReport, WeeklyReportCreate, WeeklyReportUpdate } from './types';
 
 export async function fetchWeeklyReports(): Promise<WeeklyReport[]> {
   const response = await apiClient.get<WeeklyReport[]>('/api/v1/weekly-reports');
+  return response.data;
+}
+
+export async function fetchTeamReports(department?: string): Promise<TeamWeeklyReport[]> {
+  const params = department ? { department } : {};
+  const response = await apiClient.get<TeamWeeklyReport[]>('/api/v1/weekly-reports/team', {
+    params,
+  });
   return response.data;
 }
 
