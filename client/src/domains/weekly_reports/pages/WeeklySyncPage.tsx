@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CalendarDays,
@@ -7,6 +7,9 @@ import {
   User,
   Loader2,
   FileText,
+  AlertTriangle,
+  TrendingUp,
+  ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
 import { useAuthStore } from '@/core/store/useAuthStore';
@@ -14,18 +17,114 @@ import { toast } from '@/core/utils/toast';
 import { fetchWeeklyReports } from '../api';
 import type { WeeklyReport } from '../types';
 
-const STATUS_COLOR: Record<string, string> = {
-  완료: 'bg-emerald-100 text-emerald-700',
-  진행중: 'bg-blue-100 text-blue-700',
-  지연: 'bg-rose-100 text-rose-700',
-  대기: 'bg-slate-100 text-slate-600',
+// ─── 상수 ───────────────────────────────────────────────────────────────────
+
+const BRAND = '#FF6B00';
+
+const YEAR_OPTIONS = ['2026', '2027', '2028', '2029', '2030'];
+const MONTH_OPTIONS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+const WEEK_OPTIONS = ['1주차', '2주차', '3주차', '4주차', '5주차'];
+const CATEGORY_OPTIONS = ['일반업무', '기타업무', '프로젝트'];
+const COMPANY_OPTIONS = ['세아홀딩스', '세아베스틸지주', '세아M&S', '세아특수강'];
+
+const STATUS_MAP: Record<string, { label: string; cls: string }> = {
+  완료: { label: 'COMPLETED', cls: 'bg-slate-800 text-white' },
+  진행중: { label: 'IN PROGRESS', cls: 'bg-blue-100 text-blue-700' },
+  대기: { label: 'PENDING', cls: 'bg-amber-100 text-amber-700' },
+  지연: { label: 'DELAYED', cls: 'bg-red-100 text-red-600' },
+  보류: { label: 'ON HOLD', cls: 'bg-purple-100 text-purple-700' },
+  취소: { label: 'CANCELED', cls: 'bg-slate-100 text-slate-500' },
 };
 
-const PRIORITY_COLOR: Record<string, string> = {
-  높음: 'bg-rose-50 text-rose-600 border border-rose-200',
-  중간: 'bg-amber-50 text-amber-600 border border-amber-200',
-  낮음: 'bg-slate-50 text-slate-500 border border-slate-200',
+const PRIORITY_MAP: Record<string, { label: string; dot: string; cls: string }> = {
+  높음: { label: 'HIGH', dot: 'bg-red-500', cls: 'text-red-600' },
+  중간: { label: 'MED', dot: 'bg-amber-400', cls: 'text-amber-600' },
+  낮음: { label: 'LOW', dot: 'bg-slate-400', cls: 'text-slate-500' },
 };
+
+const PAGE_SIZE = 10;
+
+// ─── 서브 컴포넌트: ProgressBar ──────────────────────────────────────────────
+
+function ProgressBar({ value }: { value: number }) {
+  const barColor =
+    value <= 30 ? 'bg-red-500' : value <= 70 ? 'bg-yellow-400' : 'bg-emerald-500';
+  return (
+    <div className="flex items-center gap-2 min-w-[90px]">
+      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${barColor}`}
+          style={{ width: `${value}%` }}
+        />
+      </div>
+      <span className="text-xs font-semibold text-slate-600 w-8 text-right">{value}%</span>
+    </div>
+  );
+}
+
+// ─── 서브 컴포넌트: StatusBadge ──────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: string | null }) {
+  if (!status) return <span className="text-xs text-slate-400">-</span>;
+  const mapped = STATUS_MAP[status];
+  if (!mapped) return <span className="text-xs text-slate-500">{status}</span>;
+  return (
+    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${mapped.cls}`}>
+      {mapped.label}
+    </span>
+  );
+}
+
+// ─── 서브 컴포넌트: PriorityBadge ───────────────────────────────────────────
+
+function PriorityBadge({ priority }: { priority: string | null }) {
+  if (!priority) return <span className="text-xs text-slate-400">-</span>;
+  const mapped = PRIORITY_MAP[priority];
+  if (!mapped) return <span className="text-xs text-slate-500">{priority}</span>;
+  return (
+    <div className={`flex items-center gap-1.5 ${mapped.cls}`}>
+      <span className={`w-2 h-2 rounded-full inline-block ${mapped.dot}`} />
+      <span className="text-xs font-bold">{mapped.label}</span>
+    </div>
+  );
+}
+
+// ─── 서브 컴포넌트: FilterSelect ─────────────────────────────────────────────
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-xs font-semibold text-slate-500">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+        style={{ '--tw-ring-color': BRAND } as React.CSSProperties}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+// ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 
 export function WeeklySyncPage() {
   const navigate = useNavigate();
@@ -35,6 +134,14 @@ export function WeeklySyncPage() {
   const [reports, setReports] = useState<WeeklyReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<WeeklyReport | null>(null);
+  const [page, setPage] = useState(1);
+
+  // 필터 상태
+  const [filterYear, setFilterYear] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterWeek, setFilterWeek] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterCompany, setFilterCompany] = useState('');
 
   useEffect(() => {
     if (!user) {
@@ -61,45 +168,112 @@ export function WeeklySyncPage() {
     navigate('/login', { replace: true });
   };
 
-  if (!user) return null;
+  const resetFilters = () => {
+    setFilterYear('');
+    setFilterMonth('');
+    setFilterWeek('');
+    setFilterCategory('');
+    setFilterCompany('');
+    setPage(1);
+  };
 
+  // 필터 적용
+  const filtered = useMemo(() => {
+    return reports.filter((r) => {
+      if (filterYear && r.year !== filterYear) return false;
+      if (filterMonth && r.month !== filterMonth) return false;
+      if (filterWeek && r.week_number !== filterWeek) return false;
+      if (filterCategory && r.work_type !== filterCategory) return false;
+      if (filterCompany && r.company !== filterCompany) return false;
+      return true;
+    });
+  }, [reports, filterYear, filterMonth, filterWeek, filterCategory, filterCompany]);
+
+  // 필터 변경 시 페이지 초기화
+  useEffect(() => {
+    setPage(1);
+  }, [filterYear, filterMonth, filterWeek, filterCategory, filterCompany]);
+
+  // 요약 통계 (필터 적용된 데이터 기준)
+  const summary = useMemo(() => {
+    const total = filtered.length;
+    const completed = filtered.filter((r) => r.status === '완료').length;
+    const delayed = filtered.filter((r) => r.status === '지연').length;
+    const withIssues = filtered.filter((r) => r.issues && r.issues.trim() !== '').length;
+    const avgProgress =
+      total > 0 ? Math.round(filtered.reduce((sum, r) => sum + (r.progress ?? 0), 0) / total) : 0;
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+    return { total, completed, delayed, withIssues, avgProgress, completionRate };
+  }, [filtered]);
+
+  // 이슈 요약 텍스트
+  const issueHighlights = useMemo(() => {
+    return filtered
+      .filter((r) => r.issues && r.issues.trim() !== '')
+      .slice(0, 3)
+      .map((r) => r.issues as string);
+  }, [filtered]);
+
+  // 페이지네이션
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  if (!user) return null;
   const isAdmin = user.is_admin;
 
+  // 현재 필터 주간 표시 텍스트
+  const periodLabel = [filterYear, filterMonth && `${filterMonth}월`, filterWeek]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div className="min-h-screen bg-orange-50">
-      {/* 헤더 */}
-      <header className="sticky top-0 z-40 bg-white border-b border-orange-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+    <div className="min-h-screen bg-slate-50">
+      {/* ── 헤더 ─────────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm">
+        <div className="max-w-[1400px] mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center shadow-sm shadow-orange-200">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm"
+              style={{ backgroundColor: BRAND }}
+            >
               <CalendarDays className="text-white" size={20} />
             </div>
             <div>
-              <span className="text-lg font-black text-slate-900">Weekly Sync</span>
-              <span className="ml-2 text-xs font-semibold text-orange-500">주간보고</span>
+              <span className="text-lg font-black text-slate-900">CorpSync</span>
+              <span className="ml-2 text-xs font-semibold" style={{ color: BRAND }}>
+                주간보고
+              </span>
             </div>
           </div>
 
+          <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-500">
+            <span className="text-slate-900 border-b-2 pb-0.5" style={{ borderColor: BRAND }}>
+              Dashboard
+            </span>
+            <span className="hover:text-slate-700 cursor-pointer">Reports</span>
+            <span className="hover:text-slate-700 cursor-pointer">Teams</span>
+          </nav>
+
           <div className="flex items-center gap-3">
-            {/* 사용자 정보 */}
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-xl border border-orange-100">
               {isAdmin ? (
-                <Shield size={14} className="text-orange-500" />
+                <Shield size={14} style={{ color: BRAND }} />
               ) : (
                 <User size={14} className="text-slate-500" />
               )}
               <span className="text-sm font-semibold text-slate-700">{user.name}</span>
               {isAdmin && (
-                <span className="text-xs font-bold text-orange-500 bg-orange-100 px-1.5 py-0.5 rounded-full">
+                <span
+                  className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-orange-100"
+                  style={{ color: BRAND }}
+                >
                   관리자
                 </span>
               )}
             </div>
-
-            {/* 로그아웃 */}
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
             >
               <LogOut size={15} />
               로그아웃
@@ -108,100 +282,341 @@ export function WeeklySyncPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* 상단 타이틀 */}
-        <div className="mb-6">
-          <h2 className="text-2xl font-black text-slate-900">
-            {isAdmin ? '전체 주간보고 현황' : '내 주간보고'}
-          </h2>
-          <p className="text-sm text-slate-400 mt-1">
-            {isAdmin
-              ? '모든 팀원의 주간보고를 확인합니다.'
-              : '본인이 등록한 주간보고를 확인합니다.'}
-          </p>
+      <main className="max-w-[1400px] mx-auto px-6 py-8 space-y-6">
+        {/* ── 페이지 타이틀 + 버튼 ─────────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-black text-slate-900">Weekly Reporting Dashboard</h1>
+            {periodLabel && (
+              <p className="text-sm text-slate-400 mt-1 flex items-center gap-1">
+                <CalendarDays size={13} />
+                {periodLabel}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <button className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-sm">
+              <FileText size={15} />
+              Export PDF
+            </button>
+            <button
+              className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-xl shadow-sm hover:opacity-90 transition-all"
+              style={{ backgroundColor: BRAND }}
+            >
+              + New Update
+            </button>
+          </div>
         </div>
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-32 gap-3">
-            <Loader2 className="animate-spin text-orange-400" size={32} />
-            <p className="text-sm text-slate-400">불러오는 중...</p>
-          </div>
-        ) : reports.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 gap-3">
-            <FileText size={40} className="text-slate-300" />
-            <p className="text-slate-400 font-medium">등록된 주간보고가 없습니다.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {reports.map((r) => (
+        {/* ── 필터 영역 ─────────────────────────────────────── */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+          <div className="flex flex-wrap gap-4 items-end">
+            <FilterSelect
+              label="Year"
+              value={filterYear}
+              onChange={setFilterYear}
+              options={YEAR_OPTIONS}
+              placeholder="전체 년도"
+            />
+            <FilterSelect
+              label="Month"
+              value={filterMonth}
+              onChange={setFilterMonth}
+              options={MONTH_OPTIONS}
+              placeholder="전체 월"
+            />
+            <FilterSelect
+              label="Week"
+              value={filterWeek}
+              onChange={setFilterWeek}
+              options={WEEK_OPTIONS}
+              placeholder="전체 주차"
+            />
+            <FilterSelect
+              label="Category"
+              value={filterCategory}
+              onChange={setFilterCategory}
+              options={CATEGORY_OPTIONS}
+              placeholder="전체 유형"
+            />
+            <FilterSelect
+              label="Company"
+              value={filterCompany}
+              onChange={setFilterCompany}
+              options={COMPANY_OPTIONS}
+              placeholder="전체 회사"
+            />
+            <div className="flex flex-col gap-1 justify-end">
+              <label className="text-xs font-semibold text-transparent select-none">초기화</label>
               <button
-                key={r.weekly_reports_no}
-                onClick={() => setSelected(r)}
-                className="text-left w-full bg-white rounded-2xl border border-orange-100 p-5 shadow-sm hover:shadow-md hover:border-orange-300 transition-all group"
+                onClick={resetFilters}
+                className="text-sm font-semibold text-slate-500 border border-slate-200 px-4 py-2 rounded-lg hover:bg-slate-50 transition-all"
               >
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <div>
-                    <p className="text-xs font-semibold text-orange-500 mb-1">
-                      {r.year}년 {r.month}월 {r.week_number}
-                    </p>
-                    <p className="font-bold text-slate-900 text-base leading-tight">
-                      {r.project_name || '(프로젝트명 없음)'}
-                    </p>
-                    {isAdmin && (
-                      <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
-                        <User size={11} />
-                        {r.id}
-                      </p>
-                    )}
-                  </div>
-                  <ChevronRight
-                    size={18}
-                    className="text-slate-300 group-hover:text-orange-400 transition-colors shrink-0 mt-0.5"
-                  />
-                </div>
-
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {r.status && (
-                    <span
-                      className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_COLOR[r.status] ?? 'bg-slate-100 text-slate-600'}`}
-                    >
-                      {r.status}
-                    </span>
-                  )}
-                  {r.priority && (
-                    <span
-                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${PRIORITY_COLOR[r.priority] ?? 'bg-slate-50 text-slate-500 border border-slate-200'}`}
-                    >
-                      우선순위: {r.priority}
-                    </span>
-                  )}
-                  {r.company && (
-                    <span className="text-xs text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full">
-                      {r.company}
-                    </span>
-                  )}
-                </div>
-
-                {/* 진행률 바 */}
-                <div>
-                  <div className="flex justify-between text-xs text-slate-400 mb-1">
-                    <span>진행률</span>
-                    <span className="font-semibold text-orange-500">{r.progress}%</span>
-                  </div>
-                  <div className="h-1.5 bg-orange-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-orange-400 rounded-full transition-all"
-                      style={{ width: `${r.progress}%` }}
-                    />
-                  </div>
-                </div>
+                초기화
               </button>
-            ))}
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* ── Executive Summary ─────────────────────────────── */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+          <div className="flex flex-col lg:flex-row lg:items-start gap-6">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-lg">⚡</span>
+                <h2 className="text-base font-black text-slate-800">
+                  Executive Summary &amp; Issue Highlights
+                </h2>
+              </div>
+              {loading ? (
+                <p className="text-sm text-slate-400">로딩 중...</p>
+              ) : filtered.length === 0 ? (
+                <p className="text-sm text-slate-400">조회 결과가 없습니다.</p>
+              ) : (
+                <div className="text-sm text-slate-600 leading-relaxed space-y-1">
+                  <p>
+                    총{' '}
+                    <span className="font-bold text-slate-900">{summary.total}건</span>의 보고서 중
+                    평균 진행률은{' '}
+                    <span className="font-bold" style={{ color: BRAND }}>
+                      {summary.avgProgress}%
+                    </span>
+                    입니다.
+                  </p>
+                  {summary.delayed > 0 && (
+                    <p>
+                      <span className="font-bold text-red-600">{summary.delayed}건</span>의 항목이{' '}
+                      <span className="font-bold text-red-600">지연(DELAYED)</span> 상태로,
+                      즉각적인 조치가 필요합니다.
+                    </p>
+                  )}
+                  {summary.withIssues > 0 && (
+                    <p>
+                      <span className="font-bold text-amber-600">{summary.withIssues}건</span>의
+                      이슈가 등록되어 있습니다.
+                    </p>
+                  )}
+                  {issueHighlights.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {issueHighlights.map((iss, i) => (
+                        <li key={i} className="flex items-start gap-2 text-slate-500">
+                          <AlertTriangle
+                            size={13}
+                            className="text-amber-400 shrink-0 mt-0.5"
+                          />
+                          <span className="line-clamp-2">{iss}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 완료율 원형 표시 */}
+            {!loading && filtered.length > 0 && (
+              <div className="flex flex-col items-center gap-1 shrink-0">
+                <div className="relative w-24 h-24">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 80 80">
+                    <circle cx="40" cy="40" r="30" fill="none" stroke="#f1f5f9" strokeWidth="8" />
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="30"
+                      fill="none"
+                      stroke={BRAND}
+                      strokeWidth="8"
+                      strokeDasharray={`${(summary.completionRate / 100) * 188.4} 188.4`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-xl font-black text-slate-800">
+                      {summary.completionRate}%
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs font-semibold text-slate-500">Completion Rate</p>
+                <div className="flex items-center gap-1 text-xs text-slate-400">
+                  <TrendingUp size={12} />
+                  <span>
+                    {summary.completed}/{summary.total}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── 테이블 ────────────────────────────────────────── */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-32 gap-3">
+              <Loader2 className="animate-spin" size={32} style={{ color: BRAND }} />
+              <p className="text-sm text-slate-400">불러오는 중...</p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-32 gap-3">
+              <FileText size={40} className="text-slate-300" />
+              <p className="text-slate-400 font-medium">조건에 맞는 주간보고가 없습니다.</p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50">
+                      <th className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                        Member
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                        Category
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide">
+                        This Week&apos;s Achievements
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide">
+                        Next Week&apos;s Plan
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                        Status
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                        Priority
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                        Progress
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {paginated.map((r) => (
+                      <tr
+                        key={r.weekly_reports_no}
+                        onClick={() => setSelected(r)}
+                        className="hover:bg-orange-50/40 cursor-pointer transition-colors"
+                      >
+                        {/* Member */}
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                              style={{ backgroundColor: BRAND }}
+                            >
+                              {r.id.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-800 text-sm">{r.id}</p>
+                              {r.company && (
+                                <p className="text-xs text-slate-400">{r.company}</p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Category */}
+                        <td className="px-4 py-4">
+                          <span className="text-sm text-slate-600">
+                            {r.work_type ?? '-'}
+                          </span>
+                        </td>
+
+                        {/* This Week */}
+                        <td className="px-4 py-4 max-w-[240px]">
+                          <p className="text-sm text-slate-600 line-clamp-2 leading-snug">
+                            {r.this_week ?? '-'}
+                          </p>
+                        </td>
+
+                        {/* Next Week */}
+                        <td className="px-4 py-4 max-w-[240px]">
+                          <p className="text-sm text-slate-600 line-clamp-2 leading-snug">
+                            {r.next_week ?? '-'}
+                          </p>
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <StatusBadge status={r.status} />
+                        </td>
+
+                        {/* Priority */}
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <PriorityBadge priority={r.priority} />
+                        </td>
+
+                        {/* Progress */}
+                        <td className="px-4 py-4">
+                          <ProgressBar value={r.progress ?? 0} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 페이지네이션 */}
+              <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/50">
+                <p className="text-xs text-slate-400">
+                  총 <span className="font-semibold text-slate-600">{filtered.length}</span>건 중{' '}
+                  <span className="font-semibold text-slate-600">
+                    {(page - 1) * PAGE_SIZE + 1}–
+                    {Math.min(page * PAGE_SIZE, filtered.length)}
+                  </span>
+                  건 표시
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-white disabled:opacity-30 transition-all"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                    .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                      if (idx > 0 && typeof arr[idx - 1] === 'number' && (p as number) - (arr[idx - 1] as number) > 1) {
+                        acc.push('...');
+                      }
+                      acc.push(p);
+                      return acc;
+                    }, [])
+                    .map((p, i) =>
+                      p === '...' ? (
+                        <span key={`ellipsis-${i}`} className="text-xs text-slate-400 px-1">
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          key={p}
+                          onClick={() => setPage(p as number)}
+                          className={`w-7 h-7 text-xs font-semibold rounded-lg transition-all ${
+                            page === p
+                              ? 'text-white shadow-sm'
+                              : 'text-slate-600 border border-slate-200 hover:bg-white'
+                          }`}
+                          style={page === p ? { backgroundColor: BRAND } : {}}
+                        >
+                          {p}
+                        </button>
+                      )
+                    )}
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-white disabled:opacity-30 transition-all"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </main>
 
-      {/* 상세 모달 */}
+      {/* ── 상세 모달 ─────────────────────────────────────── */}
       {selected && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
@@ -211,23 +626,23 @@ export function WeeklySyncPage() {
             className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* 모달 헤더 */}
-            <div className="h-1.5 bg-gradient-to-r from-orange-400 to-orange-500 rounded-t-2xl" />
-            <div className="p-6">
-              <div className="flex items-start justify-between mb-4">
+            <div
+              className="h-1.5 rounded-t-2xl"
+              style={{ background: `linear-gradient(to right, ${BRAND}, #ff8c3a)` }}
+            />
+            <div className="p-6 space-y-4">
+              <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs font-semibold text-orange-500 mb-1">
+                  <p className="text-xs font-semibold mb-1" style={{ color: BRAND }}>
                     {selected.year}년 {selected.month}월 {selected.week_number}
                   </p>
                   <h3 className="text-xl font-black text-slate-900">
                     {selected.project_name || '(프로젝트명 없음)'}
                   </h3>
-                  {isAdmin && (
-                    <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-                      <User size={11} />
-                      작성자: {selected.id}
-                    </p>
-                  )}
+                  <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                    <User size={11} />
+                    {selected.id}
+                  </p>
                 </div>
                 <button
                   onClick={() => setSelected(null)}
@@ -237,43 +652,32 @@ export function WeeklySyncPage() {
                 </button>
               </div>
 
-              <div className="space-y-4 text-sm">
+              <div className="flex flex-wrap gap-2">
+                <StatusBadge status={selected.status} />
+                <PriorityBadge priority={selected.priority} />
                 {selected.company && (
-                  <Row label="거래처" value={selected.company} />
+                  <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                    {selected.company}
+                  </span>
                 )}
                 {selected.work_type && (
-                  <Row label="업무유형" value={selected.work_type} />
+                  <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                    {selected.work_type}
+                  </span>
                 )}
-                {selected.this_week && (
-                  <Row label="이번 주 업무" value={selected.this_week} multiline />
-                )}
-                {selected.next_week && (
-                  <Row label="다음 주 계획" value={selected.next_week} multiline />
-                )}
-                {selected.issues && (
-                  <Row label="이슈/위험" value={selected.issues} multiline />
-                )}
-                {selected.feedback && (
-                  <Row label="피드백" value={selected.feedback} multiline />
-                )}
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <p className="text-xs text-slate-400 mb-1">진행률</p>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 bg-orange-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-orange-400 rounded-full"
-                          style={{ width: `${selected.progress}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-bold text-orange-500 w-8 text-right">
-                        {selected.progress}%
-                      </span>
-                    </div>
-                  </div>
+              </div>
+
+              <div className="text-sm space-y-3">
+                {selected.this_week && <DetailRow label="이번 주 업무" value={selected.this_week} multiline />}
+                {selected.next_week && <DetailRow label="다음 주 계획" value={selected.next_week} multiline />}
+                {selected.issues && <DetailRow label="이슈/위험" value={selected.issues} multiline />}
+                {selected.feedback && <DetailRow label="피드백" value={selected.feedback} multiline />}
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 mb-1.5">진행률</p>
+                  <ProgressBar value={selected.progress ?? 0} />
                 </div>
                 {selected.submitted_at && (
-                  <Row
+                  <DetailRow
                     label="제출일시"
                     value={new Date(selected.submitted_at).toLocaleString('ko-KR')}
                   />
@@ -287,7 +691,7 @@ export function WeeklySyncPage() {
   );
 }
 
-function Row({
+function DetailRow({
   label,
   value,
   multiline = false,
@@ -299,9 +703,7 @@ function Row({
   return (
     <div>
       <p className="text-xs font-semibold text-slate-400 mb-1">{label}</p>
-      <p
-        className={`text-slate-700 ${multiline ? 'whitespace-pre-wrap leading-relaxed' : ''}`}
-      >
+      <p className={`text-slate-700 ${multiline ? 'whitespace-pre-wrap leading-relaxed' : ''}`}>
         {value}
       </p>
     </div>
