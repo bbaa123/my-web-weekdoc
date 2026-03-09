@@ -66,6 +66,59 @@ async def get_current_user(
     return user
 
 
+async def get_current_login_user(
+    authorization: Optional[str] = Header(None),
+    db: AsyncSession = Depends(get_database_session),
+):
+    """
+    login 테이블 기반 인증 사용자 반환.
+    Authorization: Bearer <token> 헤더에서 JWT를 파싱합니다.
+    """
+    from server.app.domain.auth.service import decode_access_token
+    from server.app.domain.login.repositories.login_repository import LoginRepository
+
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="로그인이 필요합니다.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="유효하지 않은 인증 형식입니다.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    payload = decode_access_token(parts[1])
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="유효하지 않거나 만료된 토큰입니다.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    login_id = payload.get("sub")
+    if not login_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="유효하지 않은 토큰 페이로드입니다.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    repo = LoginRepository(db)
+    login_user = await repo.get_by_id(login_id)
+    if not login_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="사용자를 찾을 수 없습니다.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return login_user
+
+
 async def get_optional_current_user(
     authorization: Optional[str] = Header(None),
     db: AsyncSession = Depends(get_database_session),
