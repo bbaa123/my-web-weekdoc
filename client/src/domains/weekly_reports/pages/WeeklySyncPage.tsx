@@ -11,11 +11,20 @@ import {
   TrendingUp,
   ChevronLeft,
   ChevronRight,
+  Plus,
+  Trash2,
+  X,
+  Save,
 } from 'lucide-react';
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
-import { fetchWeeklyReports } from '../api';
-import type { WeeklyReport } from '../types';
+import {
+  fetchWeeklyReports,
+  createWeeklyReports,
+  updateWeeklyReport,
+  deleteWeeklyReport,
+} from '../api';
+import type { WeeklyReport, WeeklyReportCreate } from '../types';
 
 // ─── 상수 ───────────────────────────────────────────────────────────────────
 
@@ -26,8 +35,15 @@ const MONTH_OPTIONS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10
 const WEEK_OPTIONS = ['1주차', '2주차', '3주차', '4주차', '5주차'];
 const CATEGORY_OPTIONS = ['일반업무', '기타업무', '프로젝트'];
 const COMPANY_OPTIONS = ['세아홀딩스', '세아베스틸지주', '세아M&S', '세아특수강'];
+const STATUS_OPTIONS = ['COMPLETED', 'IN PROGRESS', 'PENDING', 'DELAYED'];
+const PRIORITY_OPTIONS = ['HIGH', 'MED', 'LOW'];
 
-const STATUS_MAP: Record<string, { label: string; cls: string }> = {
+const STATUS_DISPLAY: Record<string, { label: string; cls: string }> = {
+  COMPLETED: { label: 'COMPLETED', cls: 'bg-slate-800 text-white' },
+  'IN PROGRESS': { label: 'IN PROGRESS', cls: 'bg-blue-100 text-blue-700' },
+  PENDING: { label: 'PENDING', cls: 'bg-amber-100 text-amber-700' },
+  DELAYED: { label: 'DELAYED', cls: 'bg-red-100 text-red-600' },
+  // 기존 한글 데이터 호환
   완료: { label: 'COMPLETED', cls: 'bg-slate-800 text-white' },
   진행중: { label: 'IN PROGRESS', cls: 'bg-blue-100 text-blue-700' },
   대기: { label: 'PENDING', cls: 'bg-amber-100 text-amber-700' },
@@ -36,13 +52,54 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   취소: { label: 'CANCELED', cls: 'bg-slate-100 text-slate-500' },
 };
 
-const PRIORITY_MAP: Record<string, { label: string; dot: string; cls: string }> = {
+const PRIORITY_DISPLAY: Record<string, { label: string; dot: string; cls: string }> = {
+  HIGH: { label: 'HIGH', dot: 'bg-red-500', cls: 'text-red-600' },
+  MED: { label: 'MED', dot: 'bg-amber-400', cls: 'text-amber-600' },
+  LOW: { label: 'LOW', dot: 'bg-slate-400', cls: 'text-slate-500' },
+  // 기존 한글 데이터 호환
   높음: { label: 'HIGH', dot: 'bg-red-500', cls: 'text-red-600' },
   중간: { label: 'MED', dot: 'bg-amber-400', cls: 'text-amber-600' },
   낮음: { label: 'LOW', dot: 'bg-slate-400', cls: 'text-slate-500' },
 };
 
 const PAGE_SIZE = 10;
+
+// ─── 폼 행 타입 ──────────────────────────────────────────────────────────────
+
+interface FormRow {
+  _key: string;
+  year: string;
+  month: string;
+  week_number: string;
+  company: string;
+  work_type: string;
+  project_name: string;
+  this_week: string;
+  next_week: string;
+  status: string;
+  priority: string;
+  progress: number;
+  issues: string;
+}
+
+function makeEmptyRow(): FormRow {
+  const now = new Date();
+  return {
+    _key: Math.random().toString(36).slice(2),
+    year: String(now.getFullYear()),
+    month: String(now.getMonth() + 1).padStart(2, '0'),
+    week_number: '1주차',
+    company: '',
+    work_type: '',
+    project_name: '',
+    this_week: '',
+    next_week: '',
+    status: '',
+    priority: '',
+    progress: 0,
+    issues: '',
+  };
+}
 
 // ─── 서브 컴포넌트: ProgressBar ──────────────────────────────────────────────
 
@@ -66,10 +123,12 @@ function ProgressBar({ value }: { value: number }) {
 
 function StatusBadge({ status }: { status: string | null }) {
   if (!status) return <span className="text-xs text-slate-400">-</span>;
-  const mapped = STATUS_MAP[status];
+  const mapped = STATUS_DISPLAY[status];
   if (!mapped) return <span className="text-xs text-slate-500">{status}</span>;
   return (
-    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${mapped.cls}`}>
+    <span
+      className={`text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${mapped.cls}`}
+    >
       {mapped.label}
     </span>
   );
@@ -79,7 +138,7 @@ function StatusBadge({ status }: { status: string | null }) {
 
 function PriorityBadge({ priority }: { priority: string | null }) {
   if (!priority) return <span className="text-xs text-slate-400">-</span>;
-  const mapped = PRIORITY_MAP[priority];
+  const mapped = PRIORITY_DISPLAY[priority];
   if (!mapped) return <span className="text-xs text-slate-500">{priority}</span>;
   return (
     <div className={`flex items-center gap-1.5 ${mapped.cls}`}>
@@ -124,6 +183,503 @@ function FilterSelect({
   );
 }
 
+// ─── 서브 컴포넌트: FormRowCard ──────────────────────────────────────────────
+
+function FormRowCard({
+  row,
+  index,
+  total,
+  onChange,
+  onRemove,
+}: {
+  row: FormRow;
+  index: number;
+  total: number;
+  onChange: (key: string, field: keyof FormRow, value: string | number) => void;
+  onRemove: (key: string) => void;
+}) {
+  const update = (field: keyof FormRow, value: string | number) =>
+    onChange(row._key, field, value);
+
+  return (
+    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 relative">
+      <div className="flex items-center justify-between mb-3">
+        <span
+          className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
+          style={{ backgroundColor: BRAND }}
+        >
+          #{index + 1}
+        </span>
+        {total > 1 && (
+          <button
+            onClick={() => onRemove(row._key)}
+            className="text-slate-400 hover:text-red-500 transition-colors"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {/* Year */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-slate-500">Year</label>
+          <select
+            value={row.year}
+            onChange={(e) => update('year', e.target.value)}
+            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
+            style={{ '--tw-ring-color': BRAND } as React.CSSProperties}
+          >
+            {YEAR_OPTIONS.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Month */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-slate-500">Month</label>
+          <select
+            value={row.month}
+            onChange={(e) => update('month', e.target.value)}
+            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
+          >
+            {MONTH_OPTIONS.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Week */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-slate-500">Week</label>
+          <select
+            value={row.week_number}
+            onChange={(e) => update('week_number', e.target.value)}
+            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
+          >
+            {WEEK_OPTIONS.map((w) => (
+              <option key={w} value={w}>
+                {w}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Category */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-slate-500">Category</label>
+          <select
+            value={row.work_type}
+            onChange={(e) => update('work_type', e.target.value)}
+            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
+          >
+            <option value="">선택</option>
+            {CATEGORY_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Project Name (프로젝트 선택 시) */}
+        {row.work_type === '프로젝트' && (
+          <div className="flex flex-col gap-1 col-span-2">
+            <label className="text-xs font-semibold text-slate-500">Project Name</label>
+            <input
+              type="text"
+              value={row.project_name}
+              onChange={(e) => update('project_name', e.target.value)}
+              placeholder="프로젝트명 입력"
+              className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
+            />
+          </div>
+        )}
+
+        {/* Company */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-slate-500">Company</label>
+          <select
+            value={row.company}
+            onChange={(e) => update('company', e.target.value)}
+            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
+          >
+            <option value="">선택</option>
+            {COMPANY_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Status */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-slate-500">Status</label>
+          <select
+            value={row.status}
+            onChange={(e) => update('status', e.target.value)}
+            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
+          >
+            <option value="">선택</option>
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Priority */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-slate-500">Priority</label>
+          <select
+            value={row.priority}
+            onChange={(e) => update('priority', e.target.value)}
+            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
+          >
+            <option value="">선택</option>
+            {PRIORITY_OPTIONS.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Progress */}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-slate-500">Progress (%)</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={row.progress}
+            onChange={(e) => {
+              const v = Math.min(100, Math.max(0, Number(e.target.value)));
+              update('progress', v);
+            }}
+            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 w-full"
+          />
+        </div>
+
+        {/* This Week */}
+        <div className="flex flex-col gap-1 col-span-2 md:col-span-3">
+          <label className="text-xs font-semibold text-slate-500">
+            This Week&apos;s Achievements
+          </label>
+          <textarea
+            rows={2}
+            value={row.this_week}
+            onChange={(e) => update('this_week', e.target.value)}
+            placeholder="이번 주 업무 내용"
+            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 resize-none"
+          />
+        </div>
+
+        {/* Next Week */}
+        <div className="flex flex-col gap-1 col-span-2 md:col-span-3">
+          <label className="text-xs font-semibold text-slate-500">Next Week&apos;s Plan</label>
+          <textarea
+            rows={2}
+            value={row.next_week}
+            onChange={(e) => update('next_week', e.target.value)}
+            placeholder="다음 주 계획"
+            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 resize-none"
+          />
+        </div>
+
+        {/* Issues */}
+        <div className="flex flex-col gap-1 col-span-2 md:col-span-3">
+          <label className="text-xs font-semibold text-slate-500">Issues / Risks</label>
+          <textarea
+            rows={2}
+            value={row.issues}
+            onChange={(e) => update('issues', e.target.value)}
+            placeholder="이슈 및 위험 요소 (선택)"
+            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 resize-none"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 서브 컴포넌트: NewReportModal ───────────────────────────────────────────
+
+function NewReportModal({
+  onClose,
+  onSuccess,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [rows, setRows] = useState<FormRow[]>([makeEmptyRow()]);
+  const [saving, setSaving] = useState(false);
+
+  const addRow = () => setRows((prev) => [...prev, makeEmptyRow()]);
+
+  const removeRow = (key: string) =>
+    setRows((prev) => prev.filter((r) => r._key !== key));
+
+  const updateRow = (key: string, field: keyof FormRow, value: string | number) => {
+    setRows((prev) =>
+      prev.map((r) => (r._key === key ? { ...r, [field]: value } : r))
+    );
+  };
+
+  const handleSubmit = async () => {
+    setSaving(true);
+    try {
+      const payload: WeeklyReportCreate[] = rows.map((r) => ({
+        year: r.year,
+        month: r.month,
+        week_number: r.week_number,
+        company: r.company || null,
+        work_type: r.work_type || null,
+        project_name: r.work_type === '프로젝트' ? r.project_name || null : null,
+        this_week: r.this_week || null,
+        next_week: r.next_week || null,
+        progress: r.progress,
+        priority: r.priority || null,
+        issues: r.issues || null,
+        status: r.status || null,
+      }));
+      await createWeeklyReports(payload);
+      toast.success(`${rows.length}건의 주간보고가 등록되었습니다.`);
+      onSuccess();
+      onClose();
+    } catch {
+      toast.error('등록 중 오류가 발생했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 헤더 */}
+        <div
+          className="h-1.5 rounded-t-2xl shrink-0"
+          style={{ background: `linear-gradient(to right, ${BRAND}, #ff8c3a)` }}
+        />
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+          <h2 className="text-lg font-black text-slate-900">New Weekly Report</h2>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* 본문 */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          {rows.map((row, i) => (
+            <FormRowCard
+              key={row._key}
+              row={row}
+              index={i}
+              total={rows.length}
+              onChange={updateRow}
+              onRemove={removeRow}
+            />
+          ))}
+        </div>
+
+        {/* 푸터 */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 shrink-0">
+          <button
+            onClick={addRow}
+            className="flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-all"
+          >
+            <Plus size={14} />
+            행 추가
+          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="text-sm font-semibold text-slate-500 border border-slate-200 px-4 py-1.5 rounded-lg hover:bg-slate-50 transition-all"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="flex items-center gap-1.5 text-sm font-bold text-white px-4 py-1.5 rounded-lg shadow-sm hover:opacity-90 disabled:opacity-50 transition-all"
+              style={{ backgroundColor: BRAND }}
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              저장
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 서브 컴포넌트: EditReportModal ─────────────────────────────────────────
+
+function EditReportModal({
+  report,
+  onClose,
+  onSuccess,
+}: {
+  report: WeeklyReport;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [form, setForm] = useState<FormRow>({
+    _key: 'edit',
+    year: report.year,
+    month: report.month,
+    week_number: report.week_number,
+    company: report.company ?? '',
+    work_type: report.work_type ?? '',
+    project_name: report.project_name ?? '',
+    this_week: report.this_week ?? '',
+    next_week: report.next_week ?? '',
+    status: report.status ?? '',
+    priority: report.priority ?? '',
+    progress: report.progress ?? 0,
+    issues: report.issues ?? '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const updateField = (_key: string, field: keyof FormRow, value: string | number) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updateWeeklyReport(report.weekly_reports_no, {
+        year: form.year,
+        month: form.month,
+        week_number: form.week_number,
+        company: form.company || null,
+        work_type: form.work_type || null,
+        project_name: form.work_type === '프로젝트' ? form.project_name || null : null,
+        this_week: form.this_week || null,
+        next_week: form.next_week || null,
+        progress: form.progress,
+        priority: form.priority || null,
+        issues: form.issues || null,
+        status: form.status || null,
+      });
+      toast.success('주간보고가 수정되었습니다.');
+      onSuccess();
+      onClose();
+    } catch {
+      toast.error('수정 중 오류가 발생했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('이 주간보고를 삭제하시겠습니까?')) return;
+    setDeleting(true);
+    try {
+      await deleteWeeklyReport(report.weekly_reports_no);
+      toast.success('주간보고가 삭제되었습니다.');
+      onSuccess();
+      onClose();
+    } catch {
+      toast.error('삭제 중 오류가 발생했습니다.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 헤더 */}
+        <div
+          className="h-1.5 rounded-t-2xl shrink-0"
+          style={{ background: `linear-gradient(to right, ${BRAND}, #ff8c3a)` }}
+        />
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+          <div>
+            <h2 className="text-lg font-black text-slate-900">Edit Weekly Report</h2>
+            <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+              <User size={11} />
+              {report.id}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* 본문 */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <FormRowCard
+            row={form}
+            index={0}
+            total={1}
+            onChange={updateField}
+            onRemove={() => {}}
+          />
+        </div>
+
+        {/* 푸터 */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 shrink-0">
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="flex items-center gap-1.5 text-sm font-semibold text-red-500 hover:text-red-700 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-all"
+          >
+            {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            삭제
+          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="text-sm font-semibold text-slate-500 border border-slate-200 px-4 py-1.5 rounded-lg hover:bg-slate-50 transition-all"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-1.5 text-sm font-bold text-white px-4 py-1.5 rounded-lg shadow-sm hover:opacity-90 disabled:opacity-50 transition-all"
+              style={{ backgroundColor: BRAND }}
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              저장
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 
 export function WeeklySyncPage() {
@@ -133,7 +689,8 @@ export function WeeklySyncPage() {
 
   const [reports, setReports] = useState<WeeklyReport[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<WeeklyReport | null>(null);
+  const [editTarget, setEditTarget] = useState<WeeklyReport | null>(null);
+  const [showNewModal, setShowNewModal] = useState(false);
   const [page, setPage] = useState(1);
 
   // 필터 상태
@@ -197,8 +754,12 @@ export function WeeklySyncPage() {
   // 요약 통계 (필터 적용된 데이터 기준)
   const summary = useMemo(() => {
     const total = filtered.length;
-    const completed = filtered.filter((r) => r.status === '완료').length;
-    const delayed = filtered.filter((r) => r.status === '지연').length;
+    const completed = filtered.filter(
+      (r) => r.status === 'COMPLETED' || r.status === '완료'
+    ).length;
+    const delayed = filtered.filter(
+      (r) => r.status === 'DELAYED' || r.status === '지연'
+    ).length;
     const withIssues = filtered.filter((r) => r.issues && r.issues.trim() !== '').length;
     const avgProgress =
       total > 0 ? Math.round(filtered.reduce((sum, r) => sum + (r.progress ?? 0), 0) / total) : 0;
@@ -239,7 +800,7 @@ export function WeeklySyncPage() {
               <CalendarDays className="text-white" size={20} />
             </div>
             <div>
-              <span className="text-lg font-black text-slate-900">CorpSync</span>
+              <span className="text-lg font-black text-slate-900">VNTG</span>
               <span className="ml-2 text-xs font-semibold" style={{ color: BRAND }}>
                 주간보고
               </span>
@@ -300,10 +861,12 @@ export function WeeklySyncPage() {
               Export PDF
             </button>
             <button
+              onClick={() => setShowNewModal(true)}
               className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-xl shadow-sm hover:opacity-90 transition-all"
               style={{ backgroundColor: BRAND }}
             >
-              + New Update
+              <Plus size={15} />
+              New Update
             </button>
           </div>
         </div>
@@ -493,7 +1056,7 @@ export function WeeklySyncPage() {
                     {paginated.map((r) => (
                       <tr
                         key={r.weekly_reports_no}
-                        onClick={() => setSelected(r)}
+                        onClick={() => setEditTarget(r)}
                         className="hover:bg-orange-50/40 cursor-pointer transition-colors"
                       >
                         {/* Member */}
@@ -516,9 +1079,7 @@ export function WeeklySyncPage() {
 
                         {/* Category */}
                         <td className="px-4 py-4">
-                          <span className="text-sm text-slate-600">
-                            {r.work_type ?? '-'}
-                          </span>
+                          <span className="text-sm text-slate-600">{r.work_type ?? '-'}</span>
                         </td>
 
                         {/* This Week */}
@@ -576,7 +1137,11 @@ export function WeeklySyncPage() {
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
                     .reduce<(number | '...')[]>((acc, p, idx, arr) => {
-                      if (idx > 0 && typeof arr[idx - 1] === 'number' && (p as number) - (arr[idx - 1] as number) > 1) {
+                      if (
+                        idx > 0 &&
+                        typeof arr[idx - 1] === 'number' &&
+                        (p as number) - (arr[idx - 1] as number) > 1
+                      ) {
                         acc.push('...');
                       }
                       acc.push(p);
@@ -616,96 +1181,22 @@ export function WeeklySyncPage() {
         </div>
       </main>
 
-      {/* ── 상세 모달 ─────────────────────────────────────── */}
-      {selected && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-          onClick={() => setSelected(null)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[85vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="h-1.5 rounded-t-2xl"
-              style={{ background: `linear-gradient(to right, ${BRAND}, #ff8c3a)` }}
-            />
-            <div className="p-6 space-y-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-semibold mb-1" style={{ color: BRAND }}>
-                    {selected.year}년 {selected.month}월 {selected.week_number}
-                  </p>
-                  <h3 className="text-xl font-black text-slate-900">
-                    {selected.project_name || '(프로젝트명 없음)'}
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-                    <User size={11} />
-                    {selected.id}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setSelected(null)}
-                  className="text-slate-300 hover:text-slate-600 transition-colors text-xl leading-none"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <StatusBadge status={selected.status} />
-                <PriorityBadge priority={selected.priority} />
-                {selected.company && (
-                  <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {selected.company}
-                  </span>
-                )}
-                {selected.work_type && (
-                  <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {selected.work_type}
-                  </span>
-                )}
-              </div>
-
-              <div className="text-sm space-y-3">
-                {selected.this_week && <DetailRow label="이번 주 업무" value={selected.this_week} multiline />}
-                {selected.next_week && <DetailRow label="다음 주 계획" value={selected.next_week} multiline />}
-                {selected.issues && <DetailRow label="이슈/위험" value={selected.issues} multiline />}
-                {selected.feedback && <DetailRow label="피드백" value={selected.feedback} multiline />}
-                <div>
-                  <p className="text-xs font-semibold text-slate-400 mb-1.5">진행률</p>
-                  <ProgressBar value={selected.progress ?? 0} />
-                </div>
-                {selected.submitted_at && (
-                  <DetailRow
-                    label="제출일시"
-                    value={new Date(selected.submitted_at).toLocaleString('ko-KR')}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* ── 신규 등록 모달 ─────────────────────────────────── */}
+      {showNewModal && (
+        <NewReportModal
+          onClose={() => setShowNewModal(false)}
+          onSuccess={loadReports}
+        />
       )}
-    </div>
-  );
-}
 
-function DetailRow({
-  label,
-  value,
-  multiline = false,
-}: {
-  label: string;
-  value: string;
-  multiline?: boolean;
-}) {
-  return (
-    <div>
-      <p className="text-xs font-semibold text-slate-400 mb-1">{label}</p>
-      <p className={`text-slate-700 ${multiline ? 'whitespace-pre-wrap leading-relaxed' : ''}`}>
-        {value}
-      </p>
+      {/* ── 수정/삭제 모달 ─────────────────────────────────── */}
+      {editTarget && (
+        <EditReportModal
+          report={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSuccess={loadReports}
+        />
+      )}
     </div>
   );
 }

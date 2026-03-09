@@ -6,6 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.domain.weekly_reports.models.weekly_report import WeeklyReport
+from server.app.domain.weekly_reports.schemas.weekly_report_schemas import (
+    WeeklyReportCreate,
+    WeeklyReportUpdate,
+)
 
 
 class WeeklyReportRepository:
@@ -27,3 +31,46 @@ class WeeklyReportRepository:
             .order_by(WeeklyReport.submitted_at.desc())
         )
         return list(result.scalars().all())
+
+    async def get_by_no(self, no: int) -> WeeklyReport | None:
+        """PK로 단건 조회"""
+        result = await self.db.execute(
+            select(WeeklyReport).where(WeeklyReport.weekly_reports_no == no)
+        )
+        return result.scalar_one_or_none()
+
+    async def create(self, login_id: str, data: WeeklyReportCreate) -> WeeklyReport:
+        """주간보고 등록"""
+        report = WeeklyReport(
+            id=login_id,
+            year=data.year,
+            month=data.month,
+            week_number=data.week_number,
+            company=data.company,
+            work_type=data.work_type,
+            project_name=data.project_name,
+            this_week=data.this_week,
+            next_week=data.next_week,
+            progress=data.progress,
+            priority=data.priority,
+            issues=data.issues,
+            status=data.status,
+        )
+        self.db.add(report)
+        await self.db.flush()
+        await self.db.refresh(report)
+        return report
+
+    async def update(self, report: WeeklyReport, data: WeeklyReportUpdate) -> WeeklyReport:
+        """주간보고 수정"""
+        update_data = data.model_dump(exclude_none=True)
+        for key, value in update_data.items():
+            setattr(report, key, value)
+        await self.db.flush()
+        await self.db.refresh(report)
+        return report
+
+    async def delete(self, report: WeeklyReport) -> None:
+        """주간보고 삭제"""
+        await self.db.delete(report)
+        await self.db.flush()
