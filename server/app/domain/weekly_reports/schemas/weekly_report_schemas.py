@@ -5,7 +5,7 @@ WeeklyReport 도메인 스키마
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class WeeklyReportResponse(BaseModel):
@@ -70,3 +70,49 @@ class TeamWeeklyReportResponse(WeeklyReportResponse):
 
     author_name: str = ""
     department: Optional[str] = None
+
+
+# ─── 댓글 스키마 ─────────────────────────────────────────────────────────────
+
+
+class WeeklyReportCommentResponse(BaseModel):
+    """댓글 응답"""
+
+    comment_id: int
+    weekly_reports_no: int
+    id: str
+    commenter_name: str = ""
+    content: str
+    parent_comment_id: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+    replies: list["WeeklyReportCommentResponse"] = []
+
+    model_config = {"from_attributes": True}
+
+
+class WeeklyReportCommentCreate(BaseModel):
+    """댓글 등록 요청"""
+
+    content: str
+    parent_comment_id: Optional[int] = None
+
+    @field_validator("content")
+    @classmethod
+    def content_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("content must not be empty")
+        return v
+
+
+class WeeklyReportCommentUpdate(BaseModel):
+    """댓글 수정 요청"""
+
+    content: str
+
+    @field_validator("content")
+    @classmethod
+    def content_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("content must not be empty")
+        return v

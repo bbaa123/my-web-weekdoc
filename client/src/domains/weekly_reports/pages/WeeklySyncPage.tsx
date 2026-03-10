@@ -32,6 +32,7 @@ import {
   deleteWeeklyReport,
 } from '../api';
 import type { TeamWeeklyReport, WeeklyReport, WeeklyReportCreate } from '../types';
+import { WeeklyReportComments } from '../components/WeeklyReportComments';
 
 // ─── 상수 ───────────────────────────────────────────────────────────────────
 
@@ -672,6 +673,7 @@ function EditReportModal({
             onChange={updateField}
             onRemove={() => {}}
           />
+          <WeeklyReportComments reportNo={report.weekly_reports_no} />
         </div>
 
         {/* 푸터 */}
