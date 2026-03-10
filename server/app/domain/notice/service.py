@@ -35,11 +35,14 @@ class NoticeService:
         if not current_login.admin_yn:
             raise PermissionError("공지사항 등록 권한이 없습니다.")
 
+        start_at = data.start_at.replace(tzinfo=None) if data.start_at else None
+        end_at = data.end_at.replace(tzinfo=None) if data.end_at else None
+
         notice = Notice(
             id=current_login.id,
             content=data.content,
-            start_at=data.start_at,
-            end_at=data.end_at,
+            start_at=start_at,
+            end_at=end_at,
         )
         notice = await self.repo.create(notice)
         return NoticeResponse.model_validate(notice)

@@ -157,9 +157,8 @@ export function NoticePanel() {
       // 패널 목록 갱신 + NoticeBar 즉시 반영
       setNotices((prev) => [...prev, created]);
       noticeStore.addNotice(created);
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : '공지 등록에 실패했습니다.';
+    } catch (err: any) {
+      const msg = err?.message || '공지 등록에 실패했습니다.';
       toast.error(msg);
     } finally {
       setSubmitting(false);
