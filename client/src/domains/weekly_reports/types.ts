@@ -51,3 +51,24 @@ export interface TeamWeeklyReport extends WeeklyReport {
   author_name: string;
   department: string | null;
 }
+
+export interface WeeklyReportComment {
+  comment_id: number;
+  weekly_reports_no: number;
+  id: string;
+  commenter_name: string;
+  content: string;
+  parent_comment_id: number | null;
+  created_at: string;
+  updated_at: string;
+  replies: WeeklyReportComment[];
+}
+
+export interface WeeklyReportCommentCreate {
+  content: string;
+  parent_comment_id?: number | null;
+}
+
+export interface WeeklyReportCommentUpdate {
+  content: string;
+}
