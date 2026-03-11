@@ -153,6 +153,8 @@ export function MyPage() {
           ...user,
           name: updated.name,
           email: updated.email,
+          nicname: updated.nicname ?? null,
+          picture: updated.picture ?? null,
           department: updated.department ?? '',
           position: (updated.position as '매니저' | '팀장' | '센터장') ?? '매니저',
           is_admin: updated.admin_yn,

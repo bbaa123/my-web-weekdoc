@@ -12,6 +12,8 @@ export interface User {
   login_id?: string;
   email: string;
   name: string;
+  nicname?: string | null;
+  picture?: string | null;
   department: string;
   role: string;
   position: '매니저' | '팀장' | '센터장';

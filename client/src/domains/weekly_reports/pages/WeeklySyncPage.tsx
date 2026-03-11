@@ -253,7 +253,7 @@ function FormRowCard({
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {/* Year */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">Year</label>
+          <label className="text-xs font-semibold text-slate-500">년도</label>
           <select
             value={row.year}
             onChange={(e) => update('year', e.target.value)}
@@ -270,7 +270,7 @@ function FormRowCard({
 
         {/* Month */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">Month</label>
+          <label className="text-xs font-semibold text-slate-500">월</label>
           <select
             value={row.month}
             onChange={(e) => update('month', e.target.value)}
@@ -286,7 +286,7 @@ function FormRowCard({
 
         {/* Week */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">Week</label>
+          <label className="text-xs font-semibold text-slate-500">주</label>
           <select
             value={row.week_number}
             onChange={(e) => update('week_number', e.target.value)}
@@ -302,7 +302,7 @@ function FormRowCard({
 
         {/* Category */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">Category</label>
+          <label className="text-xs font-semibold text-slate-500">업무유형</label>
           <select
             value={row.work_type}
             onChange={(e) => update('work_type', e.target.value)}
@@ -333,7 +333,7 @@ function FormRowCard({
 
         {/* Company */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">Company</label>
+          <label className="text-xs font-semibold text-slate-500">담당회사</label>
           <select
             value={row.company}
             onChange={(e) => update('company', e.target.value)}
@@ -350,7 +350,7 @@ function FormRowCard({
 
         {/* Status */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">Status</label>
+          <label className="text-xs font-semibold text-slate-500">상태</label>
           <select
             value={row.status}
             onChange={(e) => update('status', e.target.value)}
@@ -367,7 +367,7 @@ function FormRowCard({
 
         {/* Priority */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">Priority</label>
+          <label className="text-xs font-semibold text-slate-500">중요도</label>
           <select
             value={row.priority}
             onChange={(e) => update('priority', e.target.value)}
@@ -384,7 +384,7 @@ function FormRowCard({
 
         {/* Progress */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">Progress (%)</label>
+          <label className="text-xs font-semibold text-slate-500">진도율 (%)</label>
           <input
             type="number"
             min={0}
@@ -401,7 +401,7 @@ function FormRowCard({
         {/* This Week */}
         <div className="flex flex-col gap-1 col-span-2 md:col-span-3">
           <label className="text-xs font-semibold text-slate-500">
-            This Week&apos;s Achievements
+            이번주 업무
           </label>
           <textarea
             rows={2}
@@ -414,7 +414,7 @@ function FormRowCard({
 
         {/* Next Week */}
         <div className="flex flex-col gap-1 col-span-2 md:col-span-3">
-          <label className="text-xs font-semibold text-slate-500">Next Week&apos;s Plan</label>
+          <label className="text-xs font-semibold text-slate-500">다음주 계획</label>
           <textarea
             rows={2}
             value={row.next_week}
@@ -426,7 +426,7 @@ function FormRowCard({
 
         {/* Issues */}
         <div className="flex flex-col gap-1 col-span-2 md:col-span-3">
-          <label className="text-xs font-semibold text-slate-500">Issues / Risks</label>
+          <label className="text-xs font-semibold text-slate-500">이슈사항</label>
           <textarea
             rows={2}
             value={row.issues}
@@ -1087,7 +1087,10 @@ export function WeeklySyncPage() {
         style={{ top: isBarVisible ? NOTICE_BAR_HEIGHT : 0 }}
       >
         <div className="max-w-[1400px] mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/weekly-sync')}
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
+          >
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm"
               style={{ backgroundColor: BRAND }}
@@ -1100,7 +1103,7 @@ export function WeeklySyncPage() {
                 주간보고
               </span>
             </div>
-          </div>
+          </button>
 
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-500">
             <span className="text-slate-900 border-b-2 pb-0.5" style={{ borderColor: BRAND }}>
@@ -1121,12 +1124,24 @@ export function WeeklySyncPage() {
               className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-xl border border-orange-100 hover:bg-orange-100 hover:border-orange-200 transition-all cursor-pointer"
               title="My Page로 이동"
             >
-              {isAdmin ? (
-                <Shield size={14} style={{ color: BRAND }} />
+              {/* 아바타: 사진 > 닉네임 > 이름 순서 */}
+              {user.picture ? (
+                <img
+                  src={user.picture}
+                  alt="profile"
+                  className="w-7 h-7 rounded-full object-cover shrink-0"
+                />
               ) : (
-                <User size={14} className="text-slate-500" />
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                  style={{ backgroundColor: BRAND }}
+                >
+                  {(user.nicname || user.name).slice(0, 2).toUpperCase()}
+                </div>
               )}
-              <span className="text-sm font-semibold text-slate-700">{user.name}</span>
+              <span className="text-sm font-semibold text-slate-700">
+                {user.nicname || user.name}
+              </span>
               {user.login_id && (
                 <span className="text-xs text-slate-400 font-mono">{user.login_id}</span>
               )}
@@ -1195,35 +1210,35 @@ export function WeeklySyncPage() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
           <div className="flex flex-wrap gap-4 items-end">
             <FilterSelect
-              label="Year"
+              label="년도"
               value={filterYear}
               onChange={setFilterYear}
               options={YEAR_OPTIONS}
               placeholder="전체 년도"
             />
             <FilterSelect
-              label="Month"
+              label="월"
               value={filterMonth}
               onChange={setFilterMonth}
               options={MONTH_OPTIONS}
               placeholder="전체 월"
             />
             <FilterSelect
-              label="Week"
+              label="주"
               value={filterWeek}
               onChange={setFilterWeek}
               options={WEEK_OPTIONS}
               placeholder="전체 주차"
             />
             <FilterSelect
-              label="Category"
+              label="업무유형"
               value={filterCategory}
               onChange={setFilterCategory}
               options={CATEGORY_OPTIONS}
               placeholder="전체 유형"
             />
             <FilterSelect
-              label="Company"
+              label="담당회사"
               value={filterCompany}
               onChange={setFilterCompany}
               options={COMPANY_OPTIONS}
@@ -1412,30 +1427,30 @@ export function WeeklySyncPage() {
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50">
                       <th className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
-                        {activeTab === 'team' ? 'Author' : 'Member'}
+                        {activeTab === 'team' ? '사원' : '사원'}
                       </th>
                       {activeTab === 'team' && (
                         <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
-                          Department
+                          부서
                         </th>
                       )}
                       <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
-                        Category
+                        업무유형
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide">
-                        This Week&apos;s Achievements
+                        이번주 업무
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide">
-                        Next Week&apos;s Plan
+                        다음주 계획
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
-                        Status
+                        상태
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
-                        Priority
+                        중요도
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
-                        Progress
+                        진도율
                       </th>
                     </tr>
                   </thead>
