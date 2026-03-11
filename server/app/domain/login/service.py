@@ -25,7 +25,7 @@ class LoginService:
             name=data.name,
             email=data.email,
             password_hash=data.password,
-            admin_yn=data.admin_yn,
+            admin_yn=False,
         )
         login = await self.repo.create(login)
 

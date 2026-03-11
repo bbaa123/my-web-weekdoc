@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Mail, Lock, User, Hash, Shield, CalendarDays } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, Hash, CalendarDays } from 'lucide-react';
 import { useAuthStore, type LoginRegisterData } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
 
@@ -170,52 +170,6 @@ export function RegisterPage() {
               {confirmPassword && form.password !== confirmPassword && (
                 <p className="mt-1.5 text-xs text-rose-500">비밀번호가 일치하지 않습니다.</p>
               )}
-            </div>
-
-            {/* 관리자 유무 (admin_yn) */}
-            <div
-              className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
-                form.admin_yn
-                  ? 'bg-orange-50 border-orange-300'
-                  : 'bg-slate-50 border-slate-200 hover:border-orange-300 hover:bg-orange-50'
-              }`}
-              onClick={() => update('admin_yn', !form.admin_yn)}
-            >
-              <Shield
-                size={18}
-                className={`shrink-0 transition-colors ${form.admin_yn ? 'text-orange-500' : 'text-slate-400'}`}
-              />
-              <div className="flex-1">
-                <p
-                  className={`text-sm font-semibold transition-colors ${form.admin_yn ? 'text-orange-700' : 'text-slate-600'}`}
-                >
-                  관리자 여부 (admin_yn)
-                </p>
-                <p
-                  className={`text-xs transition-colors ${form.admin_yn ? 'text-orange-500' : 'text-slate-400'}`}
-                >
-                  체크 시 관리자 권한이 부여됩니다.
-                </p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.admin_yn}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    update('admin_yn', e.target.checked);
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="sr-only peer"
-                />
-                <div
-                  className={`w-11 h-6 rounded-full transition-colors peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-orange-300 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
-                    form.admin_yn
-                      ? 'bg-orange-500 after:translate-x-full after:border-white'
-                      : 'bg-slate-200'
-                  }`}
-                />
-              </label>
             </div>
 
             {/* 가입 버튼 */}
