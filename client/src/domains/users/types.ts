@@ -20,6 +20,12 @@ export interface UserUpsertRequest {
   admin_yn: boolean;
 }
 
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+  confirm_new_password: string;
+}
+
 export const DEPARTMENT_OPTIONS = ['ERP1팀', 'ERP2팀', 'ERP3팀', 'ERP4팀'] as const;
 export const POSITION_OPTIONS = ['임원', '팀장', '매니저'] as const;
 

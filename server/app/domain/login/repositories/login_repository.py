@@ -23,3 +23,9 @@ class LoginRepository:
         await self.db.commit()
         await self.db.refresh(login)
         return login
+
+    async def update_password(self, login_id: str, new_password: str) -> None:
+        login = await self.get_by_id(login_id)
+        if login:
+            login.password_hash = new_password
+            await self.db.commit()

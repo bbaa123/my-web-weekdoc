@@ -9,7 +9,7 @@ from server.app.core.dependencies import get_current_login_user, get_database_se
 from server.app.domain.auth.repositories.user_repository import UserRepository
 from server.app.domain.auth.schemas.user_schemas import UserProfileResponse, UserUpsertRequest
 from server.app.domain.login.models.login import Login
-from server.app.domain.login.schemas.login_schemas import LoginCreate, LoginRequest, LoginTokenResponse
+from server.app.domain.login.schemas.login_schemas import ChangePasswordRequest, LoginCreate, LoginRequest, LoginTokenResponse
 from server.app.domain.login.service import LoginService
 
 router = APIRouter(prefix="/login-auth", tags=["login-auth"])
@@ -79,6 +79,23 @@ async def get_my_profile(
         admin_yn=current_login.admin_yn,
         exists_in_users=False,
     )
+
+
+@router.post(
+    "/change-password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="비밀번호 변경",
+)
+async def change_password(
+    data: ChangePasswordRequest,
+    current_login: Login = Depends(get_current_login_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> None:
+    service = LoginService(db)
+    try:
+        await service.change_password(current_login.id, data)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.put(

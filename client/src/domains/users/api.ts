@@ -3,7 +3,7 @@
  */
 
 import { apiClient } from '@/core/api/client';
-import type { UserProfile, UserUpsertRequest } from './types';
+import type { ChangePasswordRequest, UserProfile, UserUpsertRequest } from './types';
 
 export async function getUserProfile(): Promise<UserProfile> {
   const res = await apiClient.get<UserProfile>('/api/v1/login-auth/profile');
@@ -13,4 +13,8 @@ export async function getUserProfile(): Promise<UserProfile> {
 export async function upsertUserProfile(data: UserUpsertRequest): Promise<UserProfile> {
   const res = await apiClient.put<UserProfile>('/api/v1/login-auth/profile', data);
   return res.data;
+}
+
+export async function changePassword(data: ChangePasswordRequest): Promise<void> {
+  await apiClient.post('/api/v1/login-auth/change-password', data);
 }
