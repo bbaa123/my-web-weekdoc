@@ -15,6 +15,20 @@ export interface WeeklyReport {
   status: string | null;
   submitted_at: string | null;
   feedback: string | null;
+  summary: string | null;
+}
+
+export interface AISummarizeResponse {
+  summary: string;
+  weekly_reports_no: number;
+}
+
+export interface AIGuideResponse {
+  guide: string;
+}
+
+export interface AIGuideRequest {
+  this_week: string;
 }
 
 export interface WeeklyReportCreate {

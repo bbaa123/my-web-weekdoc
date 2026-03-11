@@ -11,8 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from server.app.domain.auth.repositories.user_repository import UserRepository
 from server.app.domain.department.repositories.department_repository import DepartmentRepository
 from server.app.domain.login.models.login import Login
+from server.app.domain.weekly_reports.ai_service import WeeklyReportAIService
 from server.app.domain.weekly_reports.repositories.weekly_report_repository import WeeklyReportRepository
 from server.app.domain.weekly_reports.schemas.weekly_report_schemas import (
+    AISummarizeResponse,
+    AIGuideResponse,
     TeamWeeklyReportResponse,
     WeeklyReportCreate,
     WeeklyReportResponse,
@@ -93,6 +96,46 @@ class WeeklyReportService:
 
         children = await dept_repo.list_by_parent_code(user.department)
         return [user.department] + [c.dept_code for c in children]
+
+    async def ai_summarize(self, no: int, current_login: Login) -> AISummarizeResponse:
+        """
+        주간보고 this_week 내용을 AI로 한 문장 요약하고 DB에 저장.
+        - 본인 보고서 또는 admin만 가능
+        """
+        report = await self.repo.get_by_no(no)
+        if not report:
+            raise HTTPException(status_code=404, detail="Report not found")
+        if not current_login.admin_yn and report.id != current_login.id:
+            raise HTTPException(status_code=403, detail="Forbidden")
+        if not report.this_week:
+            raise HTTPException(status_code=400, detail="요약할 금주 진행 사항이 없습니다.")
+
+        ai_svc = WeeklyReportAIService()
+        summary_text = ai_svc.summarize(report.this_week)
+
+        update_data = WeeklyReportUpdate(summary=summary_text)
+        await self.repo.update(report, update_data)
+        await self.db.commit()
+
+        return AISummarizeResponse(summary=summary_text, weekly_reports_no=no)
+
+    async def ai_guide(self, no: int, current_login: Login) -> AIGuideResponse:
+        """
+        주간보고 this_week 내용의 미흡한 점을 AI로 분석하여 피드백 반환 (저장 없음).
+        - 본인 보고서 또는 admin만 가능
+        """
+        report = await self.repo.get_by_no(no)
+        if not report:
+            raise HTTPException(status_code=404, detail="Report not found")
+        if not current_login.admin_yn and report.id != current_login.id:
+            raise HTTPException(status_code=403, detail="Forbidden")
+        if not report.this_week:
+            raise HTTPException(status_code=400, detail="분석할 금주 진행 사항이 없습니다.")
+
+        ai_svc = WeeklyReportAIService()
+        guide_text = ai_svc.guide(report.this_week)
+
+        return AIGuideResponse(guide=guide_text)
 
     async def list_team_reports(
         self, current_login: Login, department: Optional[str] = None

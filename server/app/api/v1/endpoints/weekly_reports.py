@@ -11,6 +11,9 @@ from server.app.core.dependencies import get_current_login_user, get_database_se
 from server.app.domain.login.models.login import Login
 from server.app.domain.weekly_reports.comment_service import WeeklyReportCommentService
 from server.app.domain.weekly_reports.schemas.weekly_report_schemas import (
+    AISummarizeResponse,
+    AIGuideResponse,
+    AIGuideRequest,
     TeamWeeklyReportResponse,
     WeeklyReportCommentCreate,
     WeeklyReportCommentResponse,
@@ -93,6 +96,53 @@ async def delete_report(
 ) -> None:
     service = WeeklyReportService(db)
     await service.delete_report(no, current_login)
+
+
+# ─── AI 엔드포인트 ────────────────────────────────────────────────────────────
+
+
+@router.post(
+    "/{no}/ai/summarize",
+    response_model=AISummarizeResponse,
+    summary="AI 요약: this_week 내용을 한 문장으로 요약하고 summary 컬럼에 저장",
+)
+async def ai_summarize(
+    no: int,
+    current_login: Login = Depends(get_current_login_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> AISummarizeResponse:
+    service = WeeklyReportService(db)
+    return await service.ai_summarize(no, current_login)
+
+
+@router.post(
+    "/{no}/ai/guide",
+    response_model=AIGuideResponse,
+    summary="AI 가이드: this_week 내용의 미흡한 점 분석 피드백 반환 (저장된 보고서 기반)",
+)
+async def ai_guide(
+    no: int,
+    current_login: Login = Depends(get_current_login_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> AIGuideResponse:
+    service = WeeklyReportService(db)
+    return await service.ai_guide(no, current_login)
+
+
+@router.post(
+    "/ai/guide-text",
+    response_model=AIGuideResponse,
+    summary="AI 가이드: 텍스트 직접 전달하여 보완 가이드 반환 (저장 없음, 팝업 작성 중 사용)",
+)
+async def ai_guide_text(
+    data: AIGuideRequest,
+    current_login: Login = Depends(get_current_login_user),
+) -> AIGuideResponse:
+    from server.app.domain.weekly_reports.ai_service import WeeklyReportAIService
+
+    ai_svc = WeeklyReportAIService()
+    guide_text = ai_svc.guide(data.this_week)
+    return AIGuideResponse(guide=guide_text)
 
 
 # ─── 댓글 엔드포인트 ──────────────────────────────────────────────────────────

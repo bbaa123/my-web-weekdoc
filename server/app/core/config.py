@@ -142,6 +142,18 @@ class Settings(BaseSettings):
     )
 
     # ====================
+    # AI Settings
+    # ====================
+    ANTHROPIC_API_KEY: Optional[str] = Field(
+        default=None,
+        description="Anthropic API 키 (AI 요약/가이드 기능용)"
+    )
+    AI_MODEL: str = Field(
+        default="claude-haiku-4-5-20251001",
+        description="사용할 Claude 모델 ID"
+    )
+
+    # ====================
     # Domain Plugin Settings
     # ====================
     # 여기에 도메인별 설정을 추가할 수 있습니다
