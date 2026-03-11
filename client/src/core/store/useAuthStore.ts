@@ -105,7 +105,7 @@ export const useAuthStore = create<AuthState>()(
       registerLoginUser: async (data: LoginRegisterData) => {
         const response = await apiClient.post<{ access_token: string; user: LoginUserResponse }>(
           '/api/v1/login-auth/register',
-          data
+          { ...data, admin_yn: false }
         );
         const { access_token, user } = response.data;
         const mappedUser: User = {
