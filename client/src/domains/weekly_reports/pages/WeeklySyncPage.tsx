@@ -1128,7 +1128,12 @@ export function WeeklySyncPage() {
               Dashboard
             </span>
             <span className="hover:text-slate-700 cursor-pointer">Reports</span>
-            <span className="hover:text-slate-700 cursor-pointer">Teams</span>
+            <button
+              onClick={() => navigate('/org-chart')}
+              className="hover:text-slate-700 cursor-pointer"
+            >
+              Teams
+            </button>
           </nav>
 
           <div className="flex items-center gap-3">
