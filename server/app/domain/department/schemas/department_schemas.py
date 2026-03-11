@@ -8,6 +8,32 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
+class OrgChartUserItem(BaseModel):
+    """조직도 내 사용자 정보"""
+
+    id: str
+    name: str
+    position: Optional[str] = None
+    email: str
+    latest_report_year: Optional[str] = None
+    latest_report_month: Optional[str] = None
+    latest_report_week: Optional[str] = None
+    latest_report_status: Optional[str] = None
+
+
+class OrgChartDeptResponse(BaseModel):
+    """조직도 부서 응답 (사용자 포함)"""
+
+    dept_code: str
+    dept_name: str
+    parent_dept_code: Optional[str] = None
+    dept_level: Optional[int] = None
+    sort_order: int
+    users: list[OrgChartUserItem] = []
+
+    model_config = {"from_attributes": True}
+
+
 class DepartmentCreate(BaseModel):
     """부서 생성 요청"""
 

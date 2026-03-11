@@ -11,6 +11,7 @@ from server.app.domain.department.schemas.department_schemas import (
     DepartmentCreate,
     DepartmentResponse,
     DepartmentUpdate,
+    OrgChartDeptResponse,
 )
 from server.app.domain.department.service import DepartmentService
 
@@ -41,6 +42,19 @@ async def list_active_departments(
 ) -> list[DepartmentResponse]:
     service = DepartmentService(db)
     return await service.list_active_departments()
+
+
+@router.get(
+    "/org-chart",
+    response_model=list[OrgChartDeptResponse],
+    summary="조직도 데이터 조회 (부서 + 소속 사용자 + 최근 보고 상태)",
+)
+async def get_org_chart(
+    current_login: Login = Depends(get_current_login_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> list[OrgChartDeptResponse]:
+    service = DepartmentService(db)
+    return await service.get_org_chart()
 
 
 @router.get(

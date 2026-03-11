@@ -8,6 +8,7 @@ import { checkDatabaseConnection } from './domains/system/api';
 import { toast } from './core/utils/toast';
 import { LoginPage, RegisterPage } from './domains/auth';
 import { WeeklySyncPage } from './domains/weekly_reports/pages/WeeklySyncPage';
+import { OrgChartPage } from './domains/org_chart/pages/OrgChartPage';
 import { PrivateRoute } from './core/auth/PrivateRoute';
 
 interface DocumentConfig {
@@ -99,6 +100,14 @@ function App() {
           element={
             <PrivateRoute>
               <WeeklySyncPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/org-chart"
+          element={
+            <PrivateRoute>
+              <OrgChartPage />
             </PrivateRoute>
           }
         />
