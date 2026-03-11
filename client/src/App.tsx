@@ -9,6 +9,7 @@ import { toast } from './core/utils/toast';
 import { LoginPage, RegisterPage } from './domains/auth';
 import { WeeklySyncPage } from './domains/weekly_reports/pages/WeeklySyncPage';
 import { OrgChartPage } from './domains/org_chart/pages/OrgChartPage';
+import { MyPage } from './domains/users/pages/MyPage';
 import { PrivateRoute } from './core/auth/PrivateRoute';
 
 interface DocumentConfig {
@@ -108,6 +109,14 @@ function App() {
           element={
             <PrivateRoute>
               <OrgChartPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/my-page"
+          element={
+            <PrivateRoute>
+              <MyPage />
             </PrivateRoute>
           }
         />

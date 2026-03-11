@@ -20,7 +20,6 @@ import {
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
 import { getCurrentWeekInfo } from '@/core/utils/date';
-import { UserManagementPanel } from '@/domains/users/components/UserManagementPanel';
 import { NoticePanel } from '@/domains/notice/components/NoticePanel';
 import { NoticeBar, NOTICE_BAR_HEIGHT } from '@/domains/notice/components/NoticeBar';
 import { useNoticeStore } from '@/domains/notice/store';
@@ -728,7 +727,6 @@ export function WeeklySyncPage() {
   const [teamLoading, setTeamLoading] = useState(false);
   const [editTarget, setEditTarget] = useState<WeeklyReport | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
-  const [showUserPanel, setShowUserPanel] = useState(false);
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState<'my' | 'team'>('my');
@@ -1083,25 +1081,6 @@ export function WeeklySyncPage() {
       {/* ── 상단 공지 알림 바 ─────────────────────────────── */}
       <NoticeBar />
 
-      {/* ── 사용자 관리 패널 ──────────────────────────────── */}
-      <UserManagementPanel isOpen={showUserPanel} onClose={() => setShowUserPanel(false)} />
-
-      {/* ── 왼쪽 고정 Users 버튼 ─────────────────────────── */}
-      <button
-        onClick={() => setShowUserPanel(true)}
-        className="fixed left-0 top-[calc(50%-5rem)] z-30 flex flex-col items-center gap-1.5 py-4 px-2.5 rounded-r-xl shadow-lg text-white text-[10px] font-bold transition-all hover:px-4 active:scale-95"
-        style={{ backgroundColor: BRAND }}
-        title="사용자 관리"
-      >
-        <Users size={16} />
-        <span
-          className="writing-mode-vertical"
-          style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', letterSpacing: '0.05em' }}
-        >
-          Users
-        </span>
-      </button>
-
       {/* ── 헤더 ─────────────────────────────────────────── */}
       <header
         className="sticky z-40 bg-white border-b border-slate-100 shadow-sm"
@@ -1137,13 +1116,20 @@ export function WeeklySyncPage() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-xl border border-orange-100">
+            <button
+              onClick={() => navigate('/my-page')}
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-xl border border-orange-100 hover:bg-orange-100 hover:border-orange-200 transition-all cursor-pointer"
+              title="My Page로 이동"
+            >
               {isAdmin ? (
                 <Shield size={14} style={{ color: BRAND }} />
               ) : (
                 <User size={14} className="text-slate-500" />
               )}
               <span className="text-sm font-semibold text-slate-700">{user.name}</span>
+              {user.login_id && (
+                <span className="text-xs text-slate-400 font-mono">{user.login_id}</span>
+              )}
               {isAdmin && (
                 <span
                   className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-orange-100"
@@ -1152,7 +1138,7 @@ export function WeeklySyncPage() {
                   관리자
                 </span>
               )}
-            </div>
+            </button>
             <button
               onClick={handleLogout}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
