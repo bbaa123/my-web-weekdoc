@@ -24,7 +24,7 @@ class User(Base):
     job: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)  # 담당 업무
     nicname: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # 닉네임
     remark: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # 자기소개
-    picture: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)  # 사진 URL
+    picture: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # 사진 URL 또는 Base64 데이터
     created_at: Mapped[datetime] = mapped_column(
         DateTime(),
         nullable=False,

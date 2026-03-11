@@ -23,7 +23,9 @@ import {
   ImageIcon,
   FileText,
   Upload,
+  Trash2,
 } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
 import { getUserProfile, upsertUserProfile, changePassword } from '../api';
@@ -32,6 +34,9 @@ import type { UserProfile } from '../types';
 import { DepartmentSelect } from '@/core/ui/DepartmentSelect';
 
 const BRAND = '#FF6B00';
+
+const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
+const MAX_FILE_SIZE_MB = 2;
 
 type Tab = 'profile' | 'password';
 
@@ -44,6 +49,7 @@ export function MyPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [compressing, setCompressing] = useState(false);
 
   // 내 정보 수정 폼 상태
   const [name, setName] = useState('');
@@ -105,21 +111,53 @@ export function MyPage() {
     }
   };
 
-  const handlePictureChange = (value: string) => {
-    setPicture(value);
-    setPicturePreview(value);
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      setPicture(dataUrl);
-      setPicturePreview(dataUrl);
-    };
-    reader.readAsDataURL(file);
+
+    // 파일 형식 검사 (JPG/PNG만 허용)
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast.error('JPG 또는 PNG 파일만 업로드할 수 있습니다.');
+      e.target.value = '';
+      return;
+    }
+
+    // 파일 크기 검사 (2MB 이하)
+    const fileSizeMB = file.size / (1024 * 1024);
+    if (fileSizeMB > MAX_FILE_SIZE_MB) {
+      toast.error(`파일 크기는 ${MAX_FILE_SIZE_MB}MB 이하여야 합니다. (현재: ${fileSizeMB.toFixed(1)}MB)`);
+      e.target.value = '';
+      return;
+    }
+
+    setCompressing(true);
+    try {
+      // 브라우저 단에서 이미지 리사이징 (서버 부하 최소화)
+      const compressed = await imageCompression(file, {
+        maxSizeMB: 0.3,
+        maxWidthOrHeight: 400,
+        useWebWorker: true,
+        fileType: 'image/jpeg',
+      });
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        setPicture(dataUrl);
+        setPicturePreview(dataUrl);
+      };
+      reader.readAsDataURL(compressed);
+    } catch {
+      toast.error('이미지 처리 중 오류가 발생했습니다.');
+    } finally {
+      setCompressing(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemovePicture = () => {
+    setPicture('');
+    setPicturePreview('');
   };
 
   const handleSave = async () => {
@@ -255,19 +293,20 @@ export function MyPage() {
           {/* 프로필 헤더 */}
           <div className="px-8 pt-6 pb-4 border-b border-slate-100">
             <div className="flex items-center gap-4">
-              {/* 프로필 이미지 또는 아이콘 */}
+              {/* 프로필 이미지 — 원형 + 주황 테두리 */}
               <div className="flex-shrink-0">
                 {picturePreview ? (
                   <img
                     src={picturePreview}
                     alt="프로필"
-                    className="w-16 h-16 rounded-2xl object-cover shadow-md border-2 border-orange-100"
+                    className="w-16 h-16 rounded-full object-cover shadow-md"
+                    style={{ border: `3px solid ${BRAND}` }}
                     onError={() => setPicturePreview('')}
                   />
                 ) : (
                   <div
-                    className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-md"
-                    style={{ backgroundColor: '#fff3e8' }}
+                    className="w-16 h-16 rounded-full flex items-center justify-center shadow-md"
+                    style={{ backgroundColor: '#fff3e8', border: `3px solid ${BRAND}` }}
                   >
                     {isAdmin ? (
                       <ShieldCheck size={28} style={{ color: BRAND }} />
@@ -359,6 +398,89 @@ export function MyPage() {
                         : '처음 등록하는 프로필입니다. 정보를 입력하고 저장해주세요.'}
                     </div>
                   )}
+
+                  {/* 프로필 사진 업로드 — 원형 미리보기 + 주황 테두리 */}
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide">
+                      <ImageIcon size={12} />
+                      프로필 사진
+                    </label>
+
+                    <div className="flex flex-col items-center gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-200">
+                      {/* 원형 미리보기 영역 */}
+                      <div className="relative group">
+                        {picturePreview ? (
+                          <img
+                            src={picturePreview}
+                            alt="프로필 미리보기"
+                            className="w-28 h-28 rounded-full object-cover shadow-lg"
+                            style={{ border: `4px solid ${BRAND}` }}
+                            onError={() => setPicturePreview('')}
+                          />
+                        ) : (
+                          <div
+                            className="w-28 h-28 rounded-full flex flex-col items-center justify-center shadow-lg"
+                            style={{ backgroundColor: '#fff3e8', border: `4px solid ${BRAND}` }}
+                          >
+                            <User size={36} style={{ color: BRAND }} />
+                            <span className="text-xs font-semibold mt-1" style={{ color: BRAND }}>
+                              사진 없음
+                            </span>
+                          </div>
+                        )}
+
+                        {/* 압축 중 오버레이 */}
+                        {compressing && (
+                          <div className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40">
+                            <Loader2 size={24} className="animate-spin text-white" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 안내 문구 */}
+                      <p className="text-xs text-slate-400 text-center">
+                        JPG · PNG 파일만 허용 · 최대 2MB
+                        <br />
+                        업로드 시 자동으로 400px 이하로 리사이징됩니다.
+                      </p>
+
+                      {/* 버튼 영역 */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                          onChange={handleFileUpload}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={compressing}
+                          className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-xl shadow-sm hover:opacity-90 active:scale-[0.98] disabled:opacity-50 transition-all"
+                          style={{ backgroundColor: BRAND }}
+                        >
+                          {compressing ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Upload size={14} />
+                          )}
+                          {compressing ? '처리 중...' : '사진 선택'}
+                        </button>
+
+                        {picturePreview && (
+                          <button
+                            type="button"
+                            onClick={handleRemovePicture}
+                            className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-red-500 bg-red-50 rounded-xl hover:bg-red-100 transition-all"
+                          >
+                            <Trash2 size={14} />
+                            삭제
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
                   {/* ID (읽기 전용) */}
                   <div className="space-y-1.5">
@@ -503,69 +625,6 @@ export function MyPage() {
                     />
                   </div>
 
-                  {/* 사진 */}
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide">
-                      <ImageIcon size={12} />
-                      프로필 사진
-                    </label>
-
-                    {/* 미리보기 */}
-                    {picturePreview && (
-                      <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                        <img
-                          src={picturePreview}
-                          alt="미리보기"
-                          className="w-14 h-14 rounded-xl object-cover border border-slate-200 shadow-sm"
-                          onError={() => setPicturePreview('')}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-slate-600">미리보기</p>
-                          <p className="text-xs text-slate-400 truncate mt-0.5">{picture}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPicture('');
-                            setPicturePreview('');
-                          }}
-                          className="text-xs text-red-400 hover:text-red-600 font-semibold flex-shrink-0"
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    )}
-
-                    {/* URL 입력 */}
-                    <input
-                      type="url"
-                      value={picture}
-                      onChange={(e) => handlePictureChange(e.target.value)}
-                      placeholder="이미지 URL을 입력하세요"
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-                      style={{ '--tw-ring-color': BRAND } as React.CSSProperties}
-                    />
-
-                    {/* 파일 업로드 */}
-                    <div>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-slate-200 rounded-xl text-sm font-semibold text-slate-500 hover:border-orange-300 hover:text-orange-500 transition-all w-full justify-center"
-                      >
-                        <Upload size={15} />
-                        파일에서 이미지 선택
-                      </button>
-                    </div>
-                  </div>
-
                   {/* 관리자 여부 */}
                   <div className="space-y-1.5">
                     <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide">
@@ -595,7 +654,7 @@ export function MyPage() {
                   <div className="pt-2">
                     <button
                       onClick={handleSave}
-                      disabled={saving}
+                      disabled={saving || compressing}
                       className="w-full flex items-center justify-center gap-2 py-3.5 text-sm font-bold text-white rounded-xl shadow-md hover:opacity-90 active:scale-[0.98] disabled:opacity-50 transition-all"
                       style={{ backgroundColor: BRAND }}
                     >
