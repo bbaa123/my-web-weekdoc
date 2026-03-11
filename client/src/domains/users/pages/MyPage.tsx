@@ -15,10 +15,13 @@ import {
   ShieldCheck,
   CalendarDays,
   CheckCircle2,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
-import { getUserProfile, upsertUserProfile } from '../api';
+import { getUserProfile, upsertUserProfile, changePassword } from '../api';
 import { POSITION_OPTIONS } from '../types';
 import type { UserProfile } from '../types';
 import { DepartmentSelect } from '@/core/ui/DepartmentSelect';
@@ -38,6 +41,14 @@ export function MyPage() {
   const [department, setDepartment] = useState('');
   const [position, setPosition] = useState('');
   const [adminYn, setAdminYn] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -109,6 +120,37 @@ export function MyPage() {
       toast.error('저장 중 오류가 발생했습니다.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword) {
+      toast.error('현재 비밀번호를 입력해주세요.');
+      return;
+    }
+    if (!newPassword) {
+      toast.error('새 비밀번호를 입력해주세요.');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      toast.error('새 비밀번호와 확인 비밀번호가 일치하지 않습니다.');
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await changePassword({
+        current_password: currentPassword,
+        new_password: newPassword,
+        confirm_new_password: confirmNewPassword,
+      });
+      toast.success('비밀번호가 성공적으로 변경되었습니다.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } catch {
+      toast.error('비밀번호 변경 중 오류가 발생했습니다.');
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -338,6 +380,153 @@ export function MyPage() {
                 <Save size={16} />
               )}
               {saving ? '저장 중...' : '변경사항 저장'}
+            </button>
+          </div>
+        </div>
+
+        {/* 비밀번호 변경 카드 */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mt-6">
+          {/* 상단 오렌지 배너 */}
+          <div
+            className="h-2"
+            style={{ background: `linear-gradient(to right, ${BRAND}, #ff8c3a)` }}
+          />
+
+          {/* 섹션 헤더 */}
+          <div className="px-8 pt-6 pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: '#fff3e8' }}
+              >
+                <KeyRound size={20} style={{ color: BRAND }} />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">비밀번호 변경</h3>
+                <p className="text-xs text-slate-400 mt-0.5">보안을 위해 주기적으로 변경해주세요.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 비밀번호 폼 */}
+          <div className="px-8 py-6 space-y-5">
+            {/* 현재 비밀번호 */}
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide">
+                <KeyRound size={12} />
+                현재 비밀번호 <span style={{ color: BRAND }}>*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="현재 비밀번호를 입력하세요"
+                  className="w-full px-4 py-3 pr-12 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                  style={{ '--tw-ring-color': BRAND } as React.CSSProperties}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {/* 새 비밀번호 */}
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide">
+                <KeyRound size={12} />
+                새 비밀번호 <span style={{ color: BRAND }}>*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="새 비밀번호를 입력하세요 (최소 4자)"
+                  className="w-full px-4 py-3 pr-12 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                  style={{ '--tw-ring-color': BRAND } as React.CSSProperties}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {/* 새 비밀번호 확인 */}
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide">
+                <KeyRound size={12} />
+                새 비밀번호 확인 <span style={{ color: BRAND }}>*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="새 비밀번호를 다시 입력하세요"
+                  className={`w-full px-4 py-3 pr-12 border rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                    confirmNewPassword && newPassword !== confirmNewPassword
+                      ? 'border-red-300 focus:ring-red-300'
+                      : confirmNewPassword && newPassword === confirmNewPassword
+                        ? 'border-emerald-300 focus:ring-emerald-300'
+                        : 'border-slate-200'
+                  }`}
+                  style={
+                    !confirmNewPassword || newPassword === confirmNewPassword
+                      ? ({ '--tw-ring-color': BRAND } as React.CSSProperties)
+                      : undefined
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {/* 실시간 일치 여부 표시 */}
+              {confirmNewPassword && (
+                <p
+                  className={`text-xs font-semibold mt-1 ${
+                    newPassword === confirmNewPassword ? 'text-emerald-600' : 'text-red-500'
+                  }`}
+                >
+                  {newPassword === confirmNewPassword
+                    ? '✓ 비밀번호가 일치합니다.'
+                    : '✗ 비밀번호가 일치하지 않습니다.'}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* 비밀번호 변경 버튼 */}
+          <div className="px-8 py-5 border-t border-slate-100 bg-slate-50/50">
+            <button
+              onClick={handleChangePassword}
+              disabled={
+                changingPassword ||
+                !currentPassword ||
+                !newPassword ||
+                newPassword !== confirmNewPassword
+              }
+              className="w-full flex items-center justify-center gap-2 py-3.5 text-sm font-bold text-white rounded-xl shadow-md hover:opacity-90 active:scale-[0.98] disabled:opacity-50 transition-all"
+              style={{ backgroundColor: BRAND }}
+            >
+              {changingPassword ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <KeyRound size={16} />
+              )}
+              {changingPassword ? '변경 중...' : '비밀번호 변경'}
             </button>
           </div>
         </div>

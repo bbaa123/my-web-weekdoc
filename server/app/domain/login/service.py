@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from server.app.domain.auth.service import create_access_token
 from server.app.domain.login.models.login import Login
 from server.app.domain.login.repositories.login_repository import LoginRepository
-from server.app.domain.login.schemas.login_schemas import LoginCreate, LoginTokenResponse, LoginUserResponse
+from server.app.domain.login.schemas.login_schemas import ChangePasswordRequest, LoginCreate, LoginTokenResponse, LoginUserResponse
 
 
 class LoginService:
@@ -45,3 +45,13 @@ class LoginService:
             access_token=token,
             user=LoginUserResponse.model_validate(login),
         )
+
+    async def change_password(self, login_id: str, data: ChangePasswordRequest) -> None:
+        if data.new_password != data.confirm_new_password:
+            raise ValueError("새 비밀번호와 확인 비밀번호가 일치하지 않습니다.")
+
+        login = await self.repo.get_by_id(login_id)
+        if not login or login.password_hash != data.current_password:
+            raise ValueError("현재 비밀번호가 올바르지 않습니다.")
+
+        await self.repo.update_password(login_id, data.new_password)
