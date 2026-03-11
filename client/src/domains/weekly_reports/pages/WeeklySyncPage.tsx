@@ -213,14 +213,400 @@ function FilterSelect({
   );
 }
 
-// ─── 서브 컴포넌트: FormRowCard ──────────────────────────────────────────────
+// ─── 서브 컴포넌트: NewReportModal (섹션형 그리드 폼) ─────────────────────────
+
+function NewReportModal({
+  onClose,
+  onSuccess,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [form, setForm] = useState<FormRow>(makeEmptyRow());
+  const [saving, setSaving] = useState(false);
+  const [continueAdding, setContinueAdding] = useState(false);
+
+  const update = (field: keyof FormRow, value: string | number) =>
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+  const handleSave = async (final: boolean) => {
+    setSaving(true);
+    try {
+      const payload: WeeklyReportCreate[] = [
+        {
+          year: form.year,
+          month: form.month,
+          week_number: form.week_number,
+          company: form.company || null,
+          work_type: form.work_type || null,
+          project_name: form.work_type === '프로젝트' ? form.project_name || null : null,
+          this_week: form.this_week || null,
+          next_week: form.next_week || null,
+          progress: form.progress,
+          priority: form.priority || null,
+          issues: form.issues || null,
+          status: form.status || null,
+        },
+      ];
+      await createWeeklyReports(payload);
+      toast.success(final ? '주간보고가 최종 등록되었습니다.' : '임시 저장되었습니다.');
+      onSuccess();
+      if (final || !continueAdding) {
+        onClose();
+      } else {
+        setForm(makeEmptyRow());
+      }
+    } catch {
+      toast.error('저장 중 오류가 발생했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fieldCls =
+    'text-sm border border-slate-200 rounded-lg px-2.5 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all w-full';
+  const labelCls = 'text-xs font-semibold text-slate-500 mb-1 block';
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 상단 컬러바 */}
+        <div
+          className="h-1.5 rounded-t-2xl shrink-0"
+          style={{ background: `linear-gradient(to right, ${BRAND}, #ff8c3a)` }}
+        />
+
+        {/* 헤더 */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: '#fff3e8' }}
+            >
+              <Plus size={16} style={{ color: BRAND }} />
+            </div>
+            <div>
+              <h2 className="text-base font-black text-slate-900">New Weekly Report</h2>
+              <p className="text-xs text-slate-400 mt-0.5">주간 보고서를 작성해주세요</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors rounded-lg p-1 hover:bg-slate-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* 본문 — 섹션형 2-컬럼 그리드 */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {/* ── 날짜 섹션 ── */}
+          <div className="mb-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span
+                className="w-1.5 h-4 rounded-full"
+                style={{ backgroundColor: BRAND }}
+              />
+              <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">날짜 정보</span>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelCls}>연도</label>
+                <select
+                  value={form.year}
+                  onChange={(e) => update('year', e.target.value)}
+                  className={fieldCls}
+                >
+                  {YEAR_OPTIONS.map((y) => (
+                    <option key={y} value={y}>{y}년</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>월</label>
+                <select
+                  value={form.month}
+                  onChange={(e) => update('month', e.target.value)}
+                  className={fieldCls}
+                >
+                  {MONTH_OPTIONS.map((m) => (
+                    <option key={m} value={m}>{m}월</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>주차</label>
+                <select
+                  value={form.week_number}
+                  onChange={(e) => update('week_number', e.target.value)}
+                  className={fieldCls}
+                >
+                  {WEEK_OPTIONS.map((w) => (
+                    <option key={w} value={w}>{w}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* ── 메인 2-컬럼 그리드 ── */}
+          <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+            {/* 좌측 컬럼 */}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2 mb-1">
+                <span
+                  className="w-1.5 h-4 rounded-full"
+                  style={{ backgroundColor: BRAND }}
+                />
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">프로젝트 정보</span>
+              </div>
+
+              {/* 프로젝트명 */}
+              <div>
+                <label className={labelCls}>프로젝트명</label>
+                <input
+                  type="text"
+                  value={form.project_name}
+                  onChange={(e) => update('project_name', e.target.value)}
+                  placeholder="프로젝트명 입력 (선택)"
+                  className={fieldCls}
+                />
+              </div>
+
+              {/* 업체명 */}
+              <div>
+                <label className={labelCls}>업체명</label>
+                <select
+                  value={form.company}
+                  onChange={(e) => update('company', e.target.value)}
+                  className={fieldCls}
+                >
+                  <option value="">업체 선택</option>
+                  {COMPANY_OPTIONS.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 금주 진행 사항 */}
+              <div className="flex-1">
+                <label className={labelCls}>금주 진행 사항</label>
+                <textarea
+                  rows={4}
+                  value={form.this_week}
+                  onChange={(e) => update('this_week', e.target.value)}
+                  placeholder="이번 주에 진행한 업무를 입력하세요"
+                  className={`${fieldCls} resize-none`}
+                />
+              </div>
+
+              {/* 진행률 슬라이더 */}
+              <div>
+                <label className={labelCls}>
+                  진행률
+                  <span
+                    className="ml-2 font-black text-sm"
+                    style={{ color: BRAND }}
+                  >
+                    {form.progress}%
+                  </span>
+                </label>
+                <div className="flex items-center gap-3 mt-1">
+                  <span className="text-xs text-slate-400 w-5">0</span>
+                  <div className="relative flex-1">
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={form.progress}
+                      onChange={(e) => update('progress', Number(e.target.value))}
+                      className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right, ${BRAND} ${form.progress}%, #e2e8f0 ${form.progress}%)`,
+                        accentColor: BRAND,
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs text-slate-400 w-8">100%</span>
+                </div>
+                {/* 진행률 단계 표시 */}
+                <div className="flex justify-between mt-1 px-8">
+                  {[0, 25, 50, 75, 100].map((v) => (
+                    <span key={v} className="text-[10px] text-slate-300">{v}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 우측 컬럼 */}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2 mb-1">
+                <span
+                  className="w-1.5 h-4 rounded-full"
+                  style={{ backgroundColor: BRAND }}
+                />
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">업무 상세</span>
+              </div>
+
+              {/* 작업 구분 */}
+              <div>
+                <label className={labelCls}>작업 구분</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { val: 'IN PROGRESS', label: '진행중' },
+                    { val: 'COMPLETED', label: '완료' },
+                    { val: 'PENDING', label: '대기' },
+                    { val: 'DELAYED', label: '지연' },
+                    { val: '일반업무', label: '일반' },
+                    { val: '프로젝트', label: '프로젝트' },
+                  ].map(({ val, label }) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => update('work_type', val)}
+                      className={`text-xs font-semibold py-1.5 rounded-lg border transition-all ${
+                        form.work_type === val
+                          ? 'text-white border-transparent shadow-sm'
+                          : 'text-slate-500 border-slate-200 hover:border-orange-200 hover:text-orange-600 bg-white'
+                      }`}
+                      style={
+                        form.work_type === val
+                          ? { backgroundColor: BRAND, borderColor: BRAND }
+                          : {}
+                      }
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 차주 계획 */}
+              <div className="flex-1">
+                <label className={labelCls}>차주 계획</label>
+                <textarea
+                  rows={4}
+                  value={form.next_week}
+                  onChange={(e) => update('next_week', e.target.value)}
+                  placeholder="다음 주 계획을 입력하세요"
+                  className={`${fieldCls} resize-none`}
+                />
+              </div>
+
+              {/* 특이사항 */}
+              <div>
+                <label className={labelCls}>특이사항 / 이슈</label>
+                <textarea
+                  rows={2}
+                  value={form.issues}
+                  onChange={(e) => update('issues', e.target.value)}
+                  placeholder="이슈 및 특이사항 (선택)"
+                  className={`${fieldCls} resize-none`}
+                />
+              </div>
+
+              {/* 우선순위 라디오 그룹 */}
+              <div>
+                <label className={labelCls}>우선순위</label>
+                <div className="flex gap-2">
+                  {[
+                    { val: 'LOW', label: '낮음', color: 'bg-slate-100 text-slate-600 border-slate-200', activeColor: 'bg-slate-500 text-white border-slate-500' },
+                    { val: 'MED', label: '보통', color: 'bg-amber-50 text-amber-600 border-amber-200', activeColor: 'bg-amber-500 text-white border-amber-500' },
+                    { val: 'HIGH', label: '높음', color: 'bg-red-50 text-red-600 border-red-200', activeColor: 'bg-red-500 text-white border-red-500' },
+                  ].map(({ val, label, color, activeColor }) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => update('priority', val)}
+                      className={`flex-1 text-xs font-bold py-2 rounded-lg border transition-all ${
+                        form.priority === val ? activeColor : color
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 푸터 */}
+        <div className="border-t border-slate-100 px-6 py-4 shrink-0">
+          <div className="flex items-center justify-between">
+            {/* 저장 후 계속 추가 체크박스 */}
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={continueAdding}
+                  onChange={(e) => setContinueAdding(e.target.checked)}
+                  className="sr-only"
+                />
+                <div
+                  className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                    continueAdding ? 'border-transparent' : 'border-slate-300 bg-white group-hover:border-orange-300'
+                  }`}
+                  style={continueAdding ? { backgroundColor: BRAND, borderColor: BRAND } : {}}
+                >
+                  {continueAdding && (
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                      <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+              <span className="text-xs font-medium text-slate-500 group-hover:text-slate-700 transition-colors">
+                저장 후 계속 추가
+              </span>
+            </label>
+
+            {/* 버튼 그룹 */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onClose}
+                className="text-sm font-semibold text-slate-500 border border-slate-200 px-4 py-2 rounded-lg hover:bg-slate-50 transition-all"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => handleSave(false)}
+                disabled={saving}
+                className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-lg border transition-all disabled:opacity-50"
+                style={{ color: BRAND, borderColor: BRAND, backgroundColor: '#fff8f3' }}
+              >
+                {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                임시 저장
+              </button>
+              <button
+                onClick={() => handleSave(true)}
+                disabled={saving}
+                className="flex items-center gap-1.5 text-sm font-bold text-white px-5 py-2 rounded-lg shadow-sm hover:opacity-90 disabled:opacity-50 transition-all"
+                style={{ backgroundColor: BRAND }}
+              >
+                {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                최종 등록
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 서브 컴포넌트: FormRowCard (EditReportModal 전용) ───────────────────────
 
 function FormRowCard({
   row,
-  index,
-  total,
   onChange,
-  onRemove,
 }: {
   row: FormRow;
   index: number;
@@ -231,331 +617,88 @@ function FormRowCard({
   const update = (field: keyof FormRow, value: string | number) =>
     onChange(row._key, field, value);
 
-  return (
-    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 relative">
-      <div className="flex items-center justify-between mb-3">
-        <span
-          className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
-          style={{ backgroundColor: BRAND }}
-        >
-          #{index + 1}
-        </span>
-        {total > 1 && (
-          <button
-            onClick={() => onRemove(row._key)}
-            className="text-slate-400 hover:text-red-500 transition-colors"
-          >
-            <Trash2 size={14} />
-          </button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {/* Year */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">년도</label>
-          <select
-            value={row.year}
-            onChange={(e) => update('year', e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
-            style={{ '--tw-ring-color': BRAND } as React.CSSProperties}
-          >
-            {YEAR_OPTIONS.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Month */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">월</label>
-          <select
-            value={row.month}
-            onChange={(e) => update('month', e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
-          >
-            {MONTH_OPTIONS.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Week */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">주</label>
-          <select
-            value={row.week_number}
-            onChange={(e) => update('week_number', e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
-          >
-            {WEEK_OPTIONS.map((w) => (
-              <option key={w} value={w}>
-                {w}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Category */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">업무유형</label>
-          <select
-            value={row.work_type}
-            onChange={(e) => update('work_type', e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
-          >
-            <option value="">선택</option>
-            {CATEGORY_OPTIONS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Project Name (프로젝트 선택 시) */}
-        {row.work_type === '프로젝트' && (
-          <div className="flex flex-col gap-1 col-span-2">
-            <label className="text-xs font-semibold text-slate-500">Project Name</label>
-            <input
-              type="text"
-              value={row.project_name}
-              onChange={(e) => update('project_name', e.target.value)}
-              placeholder="프로젝트명 입력"
-              className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
-            />
-          </div>
-        )}
-
-        {/* Company */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">담당회사</label>
-          <select
-            value={row.company}
-            onChange={(e) => update('company', e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
-          >
-            <option value="">선택</option>
-            {COMPANY_OPTIONS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Status */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">상태</label>
-          <select
-            value={row.status}
-            onChange={(e) => update('status', e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
-          >
-            <option value="">선택</option>
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Priority */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">중요도</label>
-          <select
-            value={row.priority}
-            onChange={(e) => update('priority', e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1"
-          >
-            <option value="">선택</option>
-            {PRIORITY_OPTIONS.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Progress */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-500">진도율 (%)</label>
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={row.progress}
-            onChange={(e) => {
-              const v = Math.min(100, Math.max(0, Number(e.target.value)));
-              update('progress', v);
-            }}
-            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 w-full"
-          />
-        </div>
-
-        {/* This Week */}
-        <div className="flex flex-col gap-1 col-span-2 md:col-span-3">
-          <label className="text-xs font-semibold text-slate-500">
-            이번주 업무
-          </label>
-          <textarea
-            rows={2}
-            value={row.this_week}
-            onChange={(e) => update('this_week', e.target.value)}
-            placeholder="이번 주 업무 내용"
-            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 resize-none"
-          />
-        </div>
-
-        {/* Next Week */}
-        <div className="flex flex-col gap-1 col-span-2 md:col-span-3">
-          <label className="text-xs font-semibold text-slate-500">다음주 계획</label>
-          <textarea
-            rows={2}
-            value={row.next_week}
-            onChange={(e) => update('next_week', e.target.value)}
-            placeholder="다음 주 계획"
-            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 resize-none"
-          />
-        </div>
-
-        {/* Issues */}
-        <div className="flex flex-col gap-1 col-span-2 md:col-span-3">
-          <label className="text-xs font-semibold text-slate-500">이슈사항</label>
-          <textarea
-            rows={2}
-            value={row.issues}
-            onChange={(e) => update('issues', e.target.value)}
-            placeholder="이슈 및 위험 요소 (선택)"
-            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 resize-none"
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── 서브 컴포넌트: NewReportModal ───────────────────────────────────────────
-
-function NewReportModal({
-  onClose,
-  onSuccess,
-}: {
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const [rows, setRows] = useState<FormRow[]>([makeEmptyRow()]);
-  const [saving, setSaving] = useState(false);
-
-  const addRow = () => setRows((prev) => [...prev, makeEmptyRow()]);
-
-  const removeRow = (key: string) =>
-    setRows((prev) => prev.filter((r) => r._key !== key));
-
-  const updateRow = (key: string, field: keyof FormRow, value: string | number) => {
-    setRows((prev) =>
-      prev.map((r) => (r._key === key ? { ...r, [field]: value } : r))
-    );
-  };
-
-  const handleSubmit = async () => {
-    setSaving(true);
-    try {
-      const payload: WeeklyReportCreate[] = rows.map((r) => ({
-        year: r.year,
-        month: r.month,
-        week_number: r.week_number,
-        company: r.company || null,
-        work_type: r.work_type || null,
-        project_name: r.work_type === '프로젝트' ? r.project_name || null : null,
-        this_week: r.this_week || null,
-        next_week: r.next_week || null,
-        progress: r.progress,
-        priority: r.priority || null,
-        issues: r.issues || null,
-        status: r.status || null,
-      }));
-      await createWeeklyReports(payload);
-      toast.success(`${rows.length}건의 주간보고가 등록되었습니다.`);
-      onSuccess();
-      onClose();
-    } catch {
-      toast.error('등록 중 오류가 발생했습니다.');
-    } finally {
-      setSaving(false);
-    }
-  };
+  const fieldCls =
+    'text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-orange-300 w-full';
+  const labelCls = 'text-xs font-semibold text-slate-500 mb-0.5 block';
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* 헤더 */}
-        <div
-          className="h-1.5 rounded-t-2xl shrink-0"
-          style={{ background: `linear-gradient(to right, ${BRAND}, #ff8c3a)` }}
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className={labelCls}>년도</label>
+          <select value={row.year} onChange={(e) => update('year', e.target.value)} className={fieldCls}>
+            {YEAR_OPTIONS.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>월</label>
+          <select value={row.month} onChange={(e) => update('month', e.target.value)} className={fieldCls}>
+            {MONTH_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>주차</label>
+          <select value={row.week_number} onChange={(e) => update('week_number', e.target.value)} className={fieldCls}>
+            {WEEK_OPTIONS.map((w) => <option key={w} value={w}>{w}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelCls}>업무유형</label>
+          <select value={row.work_type} onChange={(e) => update('work_type', e.target.value)} className={fieldCls}>
+            <option value="">선택</option>
+            {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>담당회사</label>
+          <select value={row.company} onChange={(e) => update('company', e.target.value)} className={fieldCls}>
+            <option value="">선택</option>
+            {COMPANY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>상태</label>
+          <select value={row.status} onChange={(e) => update('status', e.target.value)} className={fieldCls}>
+            <option value="">선택</option>
+            {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>중요도</label>
+          <select value={row.priority} onChange={(e) => update('priority', e.target.value)} className={fieldCls}>
+            <option value="">선택</option>
+            {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+      </div>
+      {row.work_type === '프로젝트' && (
+        <div>
+          <label className={labelCls}>프로젝트명</label>
+          <input type="text" value={row.project_name} onChange={(e) => update('project_name', e.target.value)} placeholder="프로젝트명 입력" className={fieldCls} />
+        </div>
+      )}
+      <div>
+        <label className={labelCls}>진도율 ({row.progress}%)</label>
+        <input
+          type="range" min={0} max={100} step={5} value={row.progress}
+          onChange={(e) => update('progress', Number(e.target.value))}
+          className="w-full h-2 rounded-full appearance-none cursor-pointer"
+          style={{ background: `linear-gradient(to right, ${BRAND} ${row.progress}%, #e2e8f0 ${row.progress}%)`, accentColor: BRAND }}
         />
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
-          <h2 className="text-lg font-black text-slate-900">New Weekly Report</h2>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* 본문 */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {rows.map((row, i) => (
-            <FormRowCard
-              key={row._key}
-              row={row}
-              index={i}
-              total={rows.length}
-              onChange={updateRow}
-              onRemove={removeRow}
-            />
-          ))}
-        </div>
-
-        {/* 푸터 */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 shrink-0">
-          <button
-            onClick={addRow}
-            className="flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-all"
-          >
-            <Plus size={14} />
-            행 추가
-          </button>
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="text-sm font-semibold text-slate-500 border border-slate-200 px-4 py-1.5 rounded-lg hover:bg-slate-50 transition-all"
-            >
-              취소
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={saving}
-              className="flex items-center gap-1.5 text-sm font-bold text-white px-4 py-1.5 rounded-lg shadow-sm hover:opacity-90 disabled:opacity-50 transition-all"
-              style={{ backgroundColor: BRAND }}
-            >
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              저장
-            </button>
-          </div>
-        </div>
+      </div>
+      <div>
+        <label className={labelCls}>이번주 업무</label>
+        <textarea rows={2} value={row.this_week} onChange={(e) => update('this_week', e.target.value)} placeholder="이번 주 업무 내용" className={`${fieldCls} resize-none`} />
+      </div>
+      <div>
+        <label className={labelCls}>다음주 계획</label>
+        <textarea rows={2} value={row.next_week} onChange={(e) => update('next_week', e.target.value)} placeholder="다음 주 계획" className={`${fieldCls} resize-none`} />
+      </div>
+      <div>
+        <label className={labelCls}>이슈사항</label>
+        <textarea rows={2} value={row.issues} onChange={(e) => update('issues', e.target.value)} placeholder="이슈 및 위험 요소 (선택)" className={`${fieldCls} resize-none`} />
       </div>
     </div>
   );
