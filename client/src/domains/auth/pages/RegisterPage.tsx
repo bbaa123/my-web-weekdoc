@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { UserPlus, Mail, Lock, User, Hash, CalendarDays } from 'lucide-react';
 import { useAuthStore, type LoginRegisterData } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
+import { upsertUserProfile } from '@/domains/users/api';
+import { DepartmentSelect } from '@/core/ui/DepartmentSelect';
 
 const DEFAULT_FORM: LoginRegisterData = {
   id: '',
@@ -17,6 +19,7 @@ export function RegisterPage() {
   const registerLoginUser = useAuthStore((s) => s.registerLoginUser);
   const [form, setForm] = useState<LoginRegisterData>(DEFAULT_FORM);
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [deptCode, setDeptCode] = useState('');
   const [loading, setLoading] = useState(false);
 
   const update = <K extends keyof LoginRegisterData>(key: K, value: LoginRegisterData[K]) => {
@@ -32,6 +35,16 @@ export function RegisterPage() {
     setLoading(true);
     try {
       await registerLoginUser(form);
+      // 부서 코드가 선택된 경우 사용자 프로필(users 테이블)에 저장
+      if (deptCode) {
+        await upsertUserProfile({
+          name: form.name,
+          email: form.email,
+          department: deptCode,
+          position: null,
+          admin_yn: false,
+        });
+      }
       toast.success('가입이 완료되었습니다!');
       navigate('/weekly-sync');
     } catch (err: unknown) {
@@ -103,6 +116,17 @@ export function RegisterPage() {
                   className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400 transition-all"
                 />
               </div>
+            </div>
+
+            {/* 부서 */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">부서</label>
+              <DepartmentSelect
+                value={deptCode}
+                onChange={setDeptCode}
+                withIcon
+                placeholder="부서를 선택하세요 (선택사항)"
+              />
             </div>
 
             {/* 이메일 */}
