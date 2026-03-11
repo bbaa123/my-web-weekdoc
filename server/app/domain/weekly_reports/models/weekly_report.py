@@ -56,3 +56,4 @@ class WeeklyReport(Base):
         server_default=text("CURRENT_TIMESTAMP"),
     )
     feedback: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

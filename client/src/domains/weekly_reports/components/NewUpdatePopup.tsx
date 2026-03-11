@@ -16,10 +16,10 @@
  */
 
 import { useState } from 'react';
-import { Loader2, Plus, Save, X } from 'lucide-react';
+import { Bot, Loader2, Plus, Save, X } from 'lucide-react';
 import { toast } from '@/core/utils/toast';
 import { cn } from '@/core/utils/cn';
-import { createWeeklyReports } from '../api';
+import { createWeeklyReports, aiGuideText } from '../api';
 import type { WeeklyReportCreate } from '../types';
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
@@ -201,6 +201,8 @@ export function NewUpdatePopup({ onClose, onSuccess }: NewUpdatePopupProps) {
   const [form, setForm] = useState<FormState>(makeInitialForm());
   const [saving, setSaving] = useState(false);
   const [continueAdding, setContinueAdding] = useState(false);
+  const [aiGuideLoading, setAiGuideLoading] = useState(false);
+  const [aiGuideResult, setAiGuideResult] = useState<string | null>(null);
 
   const update = <K extends keyof FormState>(field: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -212,6 +214,24 @@ export function NewUpdatePopup({ onClose, onSuccess }: NewUpdatePopupProps) {
     'focus:border-orange-400 transition-all';
 
   const textareaCls = cn(inputCls, 'resize-none leading-relaxed');
+
+  // ── AI 가이드 핸들러 ─────────────────────────────────────────────────────────
+  const handleAiGuide = async () => {
+    if (!form.this_week.trim()) {
+      toast.error('금주 진행 사항을 먼저 입력해주세요.');
+      return;
+    }
+    setAiGuideLoading(true);
+    setAiGuideResult(null);
+    try {
+      const result = await aiGuideText(form.this_week);
+      setAiGuideResult(result.guide);
+    } catch {
+      toast.error('AI 분석 중 오류가 발생했습니다.');
+    } finally {
+      setAiGuideLoading(false);
+    }
+  };
 
   // ── 저장 핸들러 ──────────────────────────────────────────────────────────────
   const handleSave = async (final: boolean) => {
@@ -379,7 +399,26 @@ export function NewUpdatePopup({ onClose, onSuccess }: NewUpdatePopupProps) {
 
               {/* 금주 진행 사항 — 여유 있는 높이 */}
               <div className="flex flex-col flex-1">
-                <FieldLabel htmlFor="this_week">금주 진행 사항</FieldLabel>
+                <div className="flex items-center justify-between mb-2">
+                  <FieldLabel htmlFor="this_week">금주 진행 사항</FieldLabel>
+                  <button
+                    type="button"
+                    onClick={handleAiGuide}
+                    disabled={aiGuideLoading}
+                    className={cn(
+                      'flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all',
+                      'disabled:opacity-60',
+                    )}
+                    style={{ color: BRAND, borderColor: BRAND, backgroundColor: '#fff8f3' }}
+                  >
+                    {aiGuideLoading ? (
+                      <Loader2 size={12} className="animate-spin" style={{ color: BRAND }} />
+                    ) : (
+                      <Bot size={12} />
+                    )}
+                    AI 어시스턴트
+                  </button>
+                </div>
                 <textarea
                   id="this_week"
                   rows={6}
@@ -388,6 +427,34 @@ export function NewUpdatePopup({ onClose, onSuccess }: NewUpdatePopupProps) {
                   placeholder="이번 주에 진행한 업무를 자유롭게 입력하세요&#10;&#10;예) 기능 개발 완료, 코드 리뷰 진행..."
                   className={cn(textareaCls, 'flex-1 min-h-[140px]')}
                 />
+
+                {/* AI 로딩 스피너 */}
+                {aiGuideLoading && (
+                  <div className="flex items-center gap-2 mt-3 px-3 py-2.5 rounded-xl border border-orange-200 bg-orange-50">
+                    <Loader2 size={16} className="animate-spin shrink-0" style={{ color: BRAND }} />
+                    <span className="text-xs font-medium" style={{ color: BRAND }}>
+                      AI가 보완 가이드를 분석 중입니다...
+                    </span>
+                  </div>
+                )}
+
+                {/* AI 가이드 결과 박스 */}
+                {aiGuideResult && !aiGuideLoading && (
+                  <div className="mt-3 rounded-xl border border-orange-200 bg-orange-50 p-3.5">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Bot size={13} style={{ color: BRAND }} />
+                      <span className="text-xs font-bold" style={{ color: BRAND }}>
+                        AI 보완 가이드
+                      </span>
+                    </div>
+                    <p
+                      className="text-xs leading-relaxed whitespace-pre-wrap"
+                      style={{ color: '#c2440e' }}
+                    >
+                      {aiGuideResult}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* 진행률 슬라이더 — 넉넉한 상단 여백 */}

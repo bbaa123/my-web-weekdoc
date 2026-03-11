@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Bot,
   CalendarDays,
   LogOut,
   Shield,
@@ -32,6 +33,7 @@ import {
   createWeeklyReports,
   updateWeeklyReport,
   deleteWeeklyReport,
+  aiSummarize,
 } from '../api';
 import type { TeamWeeklyReport, WeeklyReport, WeeklyReportCreate } from '../types';
 import { WeeklyReportComments } from '../components/WeeklyReportComments';
@@ -854,6 +856,55 @@ function EditReportModal({
   );
 }
 
+// ─── 서브 컴포넌트: SummaryTicker ────────────────────────────────────────────
+
+interface SummaryTickerProps {
+  items: { authorName: string; summary: string }[];
+}
+
+function SummaryTicker({ items }: SummaryTickerProps) {
+  if (items.length === 0) return null;
+
+  const tickerText = items.map((i) => `${i.authorName}: ${i.summary}`).join('　　•　　');
+  // 두 배로 복사해서 끊김 없는 루프 구현
+  const fullText = `${tickerText}　　•　　${tickerText}`;
+
+  return (
+    <div
+      className="w-full overflow-hidden flex items-center gap-3 px-4 py-2.5 rounded-xl shadow-sm"
+      style={{ backgroundColor: BRAND }}
+    >
+      {/* 라벨 */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        <span className="text-white text-xs font-black uppercase tracking-widest whitespace-nowrap">
+          AI Summary
+        </span>
+        <span className="w-1.5 h-1.5 rounded-full bg-white/60 shrink-0" />
+      </div>
+
+      {/* 스크롤 텍스트 */}
+      <div className="flex-1 overflow-hidden">
+        <div
+          className="whitespace-nowrap text-white/90 text-xs font-medium"
+          style={{
+            display: 'inline-block',
+            animation: 'summaryTicker 30s linear infinite',
+          }}
+        >
+          {fullText}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes summaryTicker {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 
 export function WeeklySyncPage() {
@@ -868,6 +919,7 @@ export function WeeklySyncPage() {
   const [teamReports, setTeamReports] = useState<TeamWeeklyReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [teamLoading, setTeamLoading] = useState(false);
+  const [summarizingNos, setSummarizingNos] = useState<Set<number>>(new Set());
   const [editTarget, setEditTarget] = useState<WeeklyReport | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
@@ -946,6 +998,28 @@ export function WeeklySyncPage() {
     setFilterCompany('');
     setTeamFilterDepartment('');
     setPage(1);
+  };
+
+  const handleAiSummarize = async (no: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSummarizingNos((prev) => new Set(prev).add(no));
+    try {
+      const result = await aiSummarize(no);
+      setTeamReports((prev) =>
+        prev.map((r) =>
+          r.weekly_reports_no === no ? { ...r, summary: result.summary } : r
+        )
+      );
+      toast.success('AI 요약이 완료되었습니다.');
+    } catch {
+      toast.error('AI 요약에 실패했습니다.');
+    } finally {
+      setSummarizingNos((prev) => {
+        const next = new Set(prev);
+        next.delete(no);
+        return next;
+      });
+    }
   };
 
   // 내 보고서 필터 (admin은 자신의 ID로 client-side 필터)
@@ -1309,6 +1383,14 @@ export function WeeklySyncPage() {
       </header>
 
       <main className="max-w-[1400px] mx-auto px-6 py-8 space-y-6">
+        {/* ── AI 요약 티커 배너 ─────────────────────────────── */}
+        {(() => {
+          const summaryItems = teamReports
+            .filter((r) => r.summary)
+            .map((r) => ({ authorName: r.author_name || r.id, summary: r.summary! }));
+          return <SummaryTicker items={summaryItems} />;
+        })()}
+
         {/* ── 페이지 타이틀 + 버튼 ─────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -1595,6 +1677,9 @@ export function WeeklySyncPage() {
                       <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
                         진도율
                       </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: BRAND }}>
+                        AI 요약
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
@@ -1667,6 +1752,31 @@ export function WeeklySyncPage() {
                         {/* Progress */}
                         <td className="px-4 py-4">
                           <ProgressBar value={r.progress ?? 0} />
+                        </td>
+
+                        {/* AI Summary */}
+                        <td className="px-4 py-4 max-w-[200px]" onClick={(e) => e.stopPropagation()}>
+                          {summarizingNos.has(r.weekly_reports_no) ? (
+                            <div className="flex items-center gap-1.5">
+                              <Loader2 size={13} className="animate-spin shrink-0" style={{ color: BRAND }} />
+                              <span className="text-xs" style={{ color: BRAND }}>분석 중...</span>
+                            </div>
+                          ) : r.summary ? (
+                            <p className="text-xs leading-snug line-clamp-2" style={{ color: '#c2440e' }}>
+                              {r.summary}
+                            </p>
+                          ) : (
+                            <button
+                              onClick={(e) => handleAiSummarize(r.weekly_reports_no, e)}
+                              disabled={!r.this_week}
+                              className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-lg border transition-all disabled:opacity-40"
+                              style={{ color: BRAND, borderColor: BRAND, backgroundColor: '#fff8f3' }}
+                              title={!r.this_week ? '금주 업무 내용이 없습니다' : 'AI로 요약하기'}
+                            >
+                              <Bot size={11} />
+                              요약
+                            </button>
+                          )}
                         </td>
                       </tr>
                       );

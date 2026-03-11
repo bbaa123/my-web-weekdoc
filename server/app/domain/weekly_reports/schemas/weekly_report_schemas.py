@@ -27,6 +27,7 @@ class WeeklyReportResponse(BaseModel):
     status: Optional[str] = None
     submitted_at: Optional[datetime] = None
     feedback: Optional[str] = None
+    summary: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -63,6 +64,7 @@ class WeeklyReportUpdate(BaseModel):
     priority: Optional[str] = None
     issues: Optional[str] = None
     status: Optional[str] = None
+    summary: Optional[str] = None
 
 
 class TeamWeeklyReportResponse(WeeklyReportResponse):
@@ -70,6 +72,28 @@ class TeamWeeklyReportResponse(WeeklyReportResponse):
 
     author_name: str = ""
     department: Optional[str] = None
+
+
+# ─── AI 스키마 ───────────────────────────────────────────────────────────────
+
+
+class AISummarizeResponse(BaseModel):
+    """AI 요약 응답"""
+
+    summary: str
+    weekly_reports_no: int
+
+
+class AIGuideResponse(BaseModel):
+    """AI 보완 가이드 응답"""
+
+    guide: str
+
+
+class AIGuideRequest(BaseModel):
+    """AI 보완 가이드 요청 (텍스트 직접 전달)"""
+
+    this_week: str
 
 
 # ─── 댓글 스키마 ─────────────────────────────────────────────────────────────

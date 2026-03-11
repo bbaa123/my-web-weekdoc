@@ -1,5 +1,7 @@
 import { apiClient } from '@/core/api/client';
 import type {
+  AISummarizeResponse,
+  AIGuideResponse,
   TeamWeeklyReport,
   WeeklyReport,
   WeeklyReportComment,
@@ -37,6 +39,30 @@ export async function updateWeeklyReport(
 
 export async function deleteWeeklyReport(no: number): Promise<void> {
   await apiClient.delete(`/api/v1/weekly-reports/${no}`);
+}
+
+// ─── AI API ───────────────────────────────────────────────────────────────────
+
+export async function aiSummarize(no: number): Promise<AISummarizeResponse> {
+  const response = await apiClient.post<AISummarizeResponse>(
+    `/api/v1/weekly-reports/${no}/ai/summarize`
+  );
+  return response.data;
+}
+
+export async function aiGuide(no: number): Promise<AIGuideResponse> {
+  const response = await apiClient.post<AIGuideResponse>(
+    `/api/v1/weekly-reports/${no}/ai/guide`
+  );
+  return response.data;
+}
+
+export async function aiGuideText(thisWeek: string): Promise<AIGuideResponse> {
+  const response = await apiClient.post<AIGuideResponse>(
+    '/api/v1/weekly-reports/ai/guide-text',
+    { this_week: thisWeek }
+  );
+  return response.data;
 }
 
 // ─── 댓글 API ─────────────────────────────────────────────────────────────────
