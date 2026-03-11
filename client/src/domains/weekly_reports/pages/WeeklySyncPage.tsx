@@ -24,6 +24,7 @@ import { UserManagementPanel } from '@/domains/users/components/UserManagementPa
 import { NoticePanel } from '@/domains/notice/components/NoticePanel';
 import { NoticeBar, NOTICE_BAR_HEIGHT } from '@/domains/notice/components/NoticeBar';
 import { useNoticeStore } from '@/domains/notice/store';
+import { useDepartmentStore } from '@/domains/departments/store';
 import {
   fetchWeeklyReports,
   fetchTeamReports,
@@ -717,6 +718,7 @@ export function WeeklySyncPage() {
   const logout = useAuthStore((s) => s.logout);
   const { notices: barNotices, isDismissed: isBarDismissed } = useNoticeStore();
   const isBarVisible = !isBarDismissed && barNotices.length > 0;
+  const { departments: activeDepartments, fetchActive: fetchActiveDepts } = useDepartmentStore();
 
   const [reports, setReports] = useState<WeeklyReport[]>([]);
   const [teamReports, setTeamReports] = useState<TeamWeeklyReport[]>([]);
@@ -746,6 +748,7 @@ export function WeeklySyncPage() {
     }
     loadReports();
     loadTeamReports();
+    fetchActiveDepts();
   }, [user]);
 
   const loadReports = async () => {
@@ -806,10 +809,12 @@ export function WeeklySyncPage() {
     });
   }, [myReports, filterYear, filterMonth, filterWeek, filterCategory, filterCompany]);
 
-  // 팀 보고서에서 사용 가능한 부서 목록 (admin용)
-  const availableDepartments = useMemo(() => {
-    return [...new Set(teamReports.map((r) => r.department).filter(Boolean))].sort() as string[];
-  }, [teamReports]);
+  // 부서 코드로 부서명 조회 헬퍼
+  const getDeptName = (deptCode: string | null | undefined): string => {
+    if (!deptCode) return '-';
+    const found = activeDepartments.find((d) => d.dept_code === deptCode);
+    return found ? found.dept_name : deptCode;
+  };
 
   // 팀 보고서 필터 적용
   const teamFiltered = useMemo(() => {
@@ -1262,7 +1267,7 @@ export function WeeklySyncPage() {
               )}
             </button>
             {/* admin: 팀 보고서 탭에서 부서 필터 */}
-            {activeTab === 'team' && isAdmin && availableDepartments.length > 0 && (
+            {activeTab === 'team' && isAdmin && (
               <div className="ml-auto px-4 flex items-center gap-2">
                 <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">부서</span>
                 <select
@@ -1272,9 +1277,9 @@ export function WeeklySyncPage() {
                   style={{ '--tw-ring-color': BRAND } as React.CSSProperties}
                 >
                   <option value="">전체 부서</option>
-                  {availableDepartments.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
+                  {activeDepartments.map((dept) => (
+                    <option key={dept.dept_code} value={dept.dept_code}>
+                      {dept.dept_name}
                     </option>
                   ))}
                 </select>
@@ -1452,7 +1457,7 @@ export function WeeklySyncPage() {
                         {activeTab === 'team' && (
                           <td className="px-4 py-4 whitespace-nowrap">
                             <span className="text-xs font-semibold px-2 py-1 bg-slate-100 text-slate-600 rounded-full">
-                              {teamRow?.department ?? '-'}
+                              {getDeptName(teamRow?.department)}
                             </span>
                           </td>
                         )}

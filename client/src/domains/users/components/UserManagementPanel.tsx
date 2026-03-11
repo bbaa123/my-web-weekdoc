@@ -7,8 +7,9 @@ import { X, User, Loader2, Save, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
 import { getUserProfile, upsertUserProfile } from '../api';
-import { DEPARTMENT_OPTIONS, POSITION_OPTIONS } from '../types';
+import { POSITION_OPTIONS } from '../types';
 import type { UserProfile } from '../types';
+import { DepartmentSelect } from '@/core/ui/DepartmentSelect';
 
 const BRAND = '#FF6B00';
 
@@ -204,19 +205,13 @@ export function UserManagementPanel({ isOpen, onClose }: UserManagementPanelProp
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
                   부서
                 </label>
-                <select
+                <DepartmentSelect
                   value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                  onChange={setDepartment}
+                  placeholder="부서를 선택하세요"
+                  className="text-sm text-slate-800 rounded-lg"
                   style={{ '--tw-ring-color': BRAND } as React.CSSProperties}
-                >
-                  <option value="">부서를 선택하세요</option>
-                  {DEPARTMENT_OPTIONS.map((dept) => (
-                    <option key={dept} value={dept}>
-                      {dept}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               {/* 직급 */}
