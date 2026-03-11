@@ -7,6 +7,10 @@ export interface OrgChartUser {
   name: string;
   position: string | null;
   email: string;
+  tel: string | null;
+  job: string | null;
+  nicname: string | null;
+  picture: string | null;
   latest_report_year: string | null;
   latest_report_month: string | null;
   latest_report_week: string | null;
