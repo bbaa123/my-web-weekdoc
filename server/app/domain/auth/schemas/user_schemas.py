@@ -17,6 +17,11 @@ class UserResponse(BaseModel):
     email: str
     admin_yn: bool
     position: Optional[str]
+    tel: Optional[str] = None
+    job: Optional[str] = None
+    nicname: Optional[str] = None
+    remark: Optional[str] = None
+    picture: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -47,6 +52,11 @@ class UserCreate(BaseModel):
     email: EmailStr
     admin_yn: bool = Field(default=False)
     position: Optional[str] = Field(default=None, max_length=100)
+    tel: Optional[str] = Field(default=None, max_length=50)
+    job: Optional[str] = Field(default=None, max_length=500)
+    nicname: Optional[str] = Field(default=None, max_length=100)
+    remark: Optional[str] = Field(default=None)
+    picture: Optional[str] = Field(default=None, max_length=1000)
 
 
 class UserUpsertRequest(BaseModel):
@@ -57,6 +67,11 @@ class UserUpsertRequest(BaseModel):
     department: Optional[str] = Field(default=None, max_length=100)
     position: Optional[str] = Field(default=None, max_length=100)
     admin_yn: bool = Field(default=False)
+    tel: Optional[str] = Field(default=None, max_length=50)
+    job: Optional[str] = Field(default=None, max_length=500)
+    nicname: Optional[str] = Field(default=None, max_length=100)
+    remark: Optional[str] = Field(default=None)
+    picture: Optional[str] = Field(default=None, max_length=1000)
 
 
 class UserProfileResponse(BaseModel):
@@ -68,4 +83,9 @@ class UserProfileResponse(BaseModel):
     department: Optional[str] = None
     position: Optional[str] = None
     admin_yn: bool = False
+    tel: Optional[str] = None
+    job: Optional[str] = None
+    nicname: Optional[str] = None
+    remark: Optional[str] = None
+    picture: Optional[str] = None
     exists_in_users: bool = False  # users 테이블에 레코드가 있는지 여부

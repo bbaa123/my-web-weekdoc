@@ -15,6 +15,10 @@ class OrgChartUserItem(BaseModel):
     name: str
     position: Optional[str] = None
     email: str
+    tel: Optional[str] = None
+    job: Optional[str] = None
+    nicname: Optional[str] = None
+    picture: Optional[str] = None
     latest_report_year: Optional[str] = None
     latest_report_month: Optional[str] = None
     latest_report_week: Optional[str] = None

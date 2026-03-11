@@ -40,6 +40,11 @@ class UserRepository:
         department: Optional[str] = None,
         position: Optional[str] = None,
         admin_yn: bool = False,
+        tel: Optional[str] = None,
+        job: Optional[str] = None,
+        nicname: Optional[str] = None,
+        remark: Optional[str] = None,
+        picture: Optional[str] = None,
     ) -> User:
         existing = await self.get_by_id(user_id)
         if existing:
@@ -48,6 +53,11 @@ class UserRepository:
             existing.department = department
             existing.position = position
             existing.admin_yn = admin_yn
+            existing.tel = tel
+            existing.job = job
+            existing.nicname = nicname
+            existing.remark = remark
+            existing.picture = picture
             await self.db.commit()
             await self.db.refresh(existing)
             return existing
@@ -59,6 +69,11 @@ class UserRepository:
                 department=department,
                 position=position,
                 admin_yn=admin_yn,
+                tel=tel,
+                job=job,
+                nicname=nicname,
+                remark=remark,
+                picture=picture,
             )
             self.db.add(user)
             await self.db.commit()

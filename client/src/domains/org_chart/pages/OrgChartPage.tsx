@@ -16,6 +16,8 @@ import {
   XCircle,
   Minus,
   Building2,
+  Phone,
+  FileText,
 } from 'lucide-react';
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
@@ -117,28 +119,68 @@ function UserCard({ user }: { user: OrgChartUser }) {
 
   return (
     <div className="flex items-start gap-3 p-3 rounded-xl bg-white border border-slate-100 hover:border-orange-200 hover:shadow-sm transition-all group">
-      {/* 아바타 */}
-      <div
-        className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-        style={{ background: `linear-gradient(135deg, ${BRAND}, #ff9a3c)` }}
-      >
-        {user.name.charAt(0)}
+      {/* 아바타 또는 프로필 사진 */}
+      <div className="flex-shrink-0">
+        {user.picture ? (
+          <img
+            src={user.picture}
+            alt={user.name}
+            className="w-10 h-10 rounded-full object-cover border-2 border-orange-100 shadow-sm"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              e.currentTarget.nextElementSibling?.removeAttribute('style');
+            }}
+          />
+        ) : null}
+        <div
+          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+          style={{
+            background: `linear-gradient(135deg, ${BRAND}, #ff9a3c)`,
+            display: user.picture ? 'none' : 'flex',
+          }}
+        >
+          {user.name.charAt(0)}
+        </div>
       </div>
 
       {/* 정보 */}
       <div className="flex-1 min-w-0">
+        {/* 이름 + 직급 + 닉네임 */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-semibold text-slate-800 text-sm">{user.name}</span>
+          {user.nicname && (
+            <span className="text-[11px] text-slate-400">({user.nicname})</span>
+          )}
           {user.position && (
             <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-md bg-orange-50 text-orange-600">
               {user.position}
             </span>
           )}
         </div>
+
+        {/* 이메일 */}
         <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-400">
           <Mail size={11} />
           <span className="truncate">{user.email}</span>
         </div>
+
+        {/* 전화번호 */}
+        {user.tel && (
+          <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-400">
+            <Phone size={11} />
+            <span>{user.tel}</span>
+          </div>
+        )}
+
+        {/* 담당 업무 */}
+        {user.job && (
+          <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-500">
+            <FileText size={11} className="flex-shrink-0" />
+            <span className="truncate">{user.job}</span>
+          </div>
+        )}
+
+        {/* 보고서 상태 */}
         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
           <ReportStatusBadge status={user.latest_report_status} />
           {reportLabel && (

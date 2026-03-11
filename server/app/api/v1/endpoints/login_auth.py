@@ -67,6 +67,11 @@ async def get_my_profile(
             department=user.department,
             position=user.position,
             admin_yn=user.admin_yn,
+            tel=user.tel,
+            job=user.job,
+            nicname=user.nicname,
+            remark=user.remark,
+            picture=user.picture,
             exists_in_users=True,
         )
     # users 테이블에 없으면 login 기본값으로 응답
@@ -116,6 +121,11 @@ async def upsert_my_profile(
         department=data.department,
         position=data.position,
         admin_yn=data.admin_yn,
+        tel=data.tel,
+        job=data.job,
+        nicname=data.nicname,
+        remark=data.remark,
+        picture=data.picture,
     )
     return UserProfileResponse(
         id=user.id,
@@ -124,5 +134,10 @@ async def upsert_my_profile(
         department=user.department,
         position=user.position,
         admin_yn=user.admin_yn,
+        tel=user.tel,
+        job=user.job,
+        nicname=user.nicname,
+        remark=user.remark,
+        picture=user.picture,
         exists_in_users=True,
     )

@@ -9,6 +9,11 @@ export interface UserProfile {
   department: string | null;
   position: string | null;
   admin_yn: boolean;
+  tel: string | null;
+  job: string | null;
+  nicname: string | null;
+  remark: string | null;
+  picture: string | null;
   exists_in_users: boolean;
 }
 
@@ -18,6 +23,11 @@ export interface UserUpsertRequest {
   department: string | null;
   position: string | null;
   admin_yn: boolean;
+  tel: string | null;
+  job: string | null;
+  nicname: string | null;
+  remark: string | null;
+  picture: string | null;
 }
 
 export interface ChangePasswordRequest {
