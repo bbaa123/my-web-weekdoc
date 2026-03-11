@@ -56,7 +56,7 @@ class UserCreate(BaseModel):
     job: Optional[str] = Field(default=None, max_length=500)
     nicname: Optional[str] = Field(default=None, max_length=100)
     remark: Optional[str] = Field(default=None)
-    picture: Optional[str] = Field(default=None, max_length=1000)
+    picture: Optional[str] = Field(default=None)
 
 
 class UserUpsertRequest(BaseModel):
@@ -71,7 +71,7 @@ class UserUpsertRequest(BaseModel):
     job: Optional[str] = Field(default=None, max_length=500)
     nicname: Optional[str] = Field(default=None, max_length=100)
     remark: Optional[str] = Field(default=None)
-    picture: Optional[str] = Field(default=None, max_length=1000)
+    picture: Optional[str] = Field(default=None)
 
 
 class UserProfileResponse(BaseModel):
