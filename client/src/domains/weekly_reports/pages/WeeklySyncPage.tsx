@@ -25,6 +25,8 @@ import { NoticePanel } from '@/domains/notice/components/NoticePanel';
 import { NoticeBar, NOTICE_BAR_HEIGHT } from '@/domains/notice/components/NoticeBar';
 import { useNoticeStore } from '@/domains/notice/store';
 import { useDepartmentStore } from '@/domains/departments/store';
+import { fetchAccessibleDepartments } from '@/domains/departments/api';
+import type { Department } from '@/domains/departments/types';
 import {
   fetchWeeklyReports,
   fetchTeamReports,
@@ -731,6 +733,7 @@ export function WeeklySyncPage() {
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState<'my' | 'team'>('my');
   const [teamFilterDepartment, setTeamFilterDepartment] = useState('');
+  const [accessibleDepartments, setAccessibleDepartments] = useState<Department[]>([]);
 
   // 필터 상태 (현재 연도·월·주차를 기본값으로 설정)
   const { year: currentYear, month: currentMonth, weekNumber: currentWeekNumber } =
@@ -749,7 +752,21 @@ export function WeeklySyncPage() {
     loadReports();
     loadTeamReports();
     fetchActiveDepts();
+    loadAccessibleDepts(user.is_admin);
   }, [user]);
+
+  const loadAccessibleDepts = async (isAdminUser: boolean) => {
+    try {
+      const depts = await fetchAccessibleDepartments();
+      setAccessibleDepartments(depts);
+      // 기본값: admin이 아닌 경우 본인 소속 부서(첫 번째 항목)를 기본 선택
+      if (!isAdminUser && depts.length > 0) {
+        setTeamFilterDepartment(depts[0].dept_code);
+      }
+    } catch {
+      // 접근 가능 부서 로드 실패 시 무시
+    }
+  };
 
   const loadReports = async () => {
     setLoading(true);
@@ -1266,18 +1283,25 @@ export function WeeklySyncPage() {
                 />
               )}
             </button>
-            {/* admin: 팀 보고서 탭에서 부서 필터 */}
-            {activeTab === 'team' && isAdmin && (
+            {/* 모든 사용자: 팀 보고서 탭에서 부서 선택 (계층 권한 적용) */}
+            {activeTab === 'team' && (
               <div className="ml-auto px-4 flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">부서</span>
+                <span className="text-xs font-semibold whitespace-nowrap" style={{ color: BRAND }}>
+                  부서 선택
+                </span>
                 <select
                   value={teamFilterDepartment}
                   onChange={(e) => setTeamFilterDepartment(e.target.value)}
-                  className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-                  style={{ '--tw-ring-color': BRAND } as React.CSSProperties}
+                  className="text-sm rounded-lg px-3 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-offset-0 transition-all cursor-pointer"
+                  style={{
+                    backgroundColor: '#FFF7F0',
+                    border: `1.5px solid ${BRAND}`,
+                    color: BRAND,
+                    '--tw-ring-color': BRAND,
+                  } as React.CSSProperties}
                 >
-                  <option value="">전체 부서</option>
-                  {activeDepartments.map((dept) => (
+                  {isAdmin && <option value="">전체 부서</option>}
+                  {accessibleDepartments.map((dept) => (
                     <option key={dept.dept_code} value={dept.dept_code}>
                       {dept.dept_name}
                     </option>
