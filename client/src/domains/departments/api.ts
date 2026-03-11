@@ -16,6 +16,11 @@ export async function fetchActiveDepartments(): Promise<Department[]> {
   return response.data;
 }
 
+export async function fetchAccessibleDepartments(): Promise<Department[]> {
+  const response = await apiClient.get<Department[]>('/api/v1/departments/accessible');
+  return response.data;
+}
+
 export async function fetchDepartment(deptCode: string): Promise<Department> {
   const response = await apiClient.get<Department>(`/api/v1/departments/${deptCode}`);
   return response.data;

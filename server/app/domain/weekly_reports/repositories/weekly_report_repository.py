@@ -4,6 +4,7 @@ WeeklyReport Repository - DB 접근 계층
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import or_
 
 from server.app.domain.weekly_reports.models.weekly_report import WeeklyReport
 from server.app.domain.weekly_reports.schemas.weekly_report_schemas import (
@@ -78,6 +79,18 @@ class WeeklyReportRepository:
             select(WeeklyReport, User.name, User.department)
             .outerjoin(User, WeeklyReport.id == User.id)
             .where(User.department == department)
+            .order_by(WeeklyReport.submitted_at.desc())
+        )
+        return list(result.all())
+
+    async def list_with_author_by_departments(self, departments: list[str]) -> list:
+        """여러 부서의 주간보고 목록 (작성자 이름·부서 포함, submitted_at 내림차순)"""
+        from server.app.domain.auth.models.user import User
+
+        result = await self.db.execute(
+            select(WeeklyReport, User.name, User.department)
+            .outerjoin(User, WeeklyReport.id == User.id)
+            .where(or_(*[User.department == dept for dept in departments]))
             .order_by(WeeklyReport.submitted_at.desc())
         )
         return list(result.all())

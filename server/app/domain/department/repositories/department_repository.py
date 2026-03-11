@@ -47,6 +47,15 @@ class DepartmentRepository:
         await self.db.refresh(department)
         return department
 
+    async def list_by_parent_code(self, parent_dept_code: str) -> list[Department]:
+        """상위 부서 코드로 직속 하위 부서 목록 조회 (use_yn = 'Y')"""
+        result = await self.db.execute(
+            select(Department)
+            .where(Department.parent_dept_code == parent_dept_code, Department.use_yn == "Y")
+            .order_by(Department.sort_order.asc(), Department.dept_code.asc())
+        )
+        return list(result.scalars().all())
+
     async def delete(self, department: Department) -> None:
         await self.db.delete(department)
         await self.db.commit()

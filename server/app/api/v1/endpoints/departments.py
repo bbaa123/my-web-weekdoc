@@ -44,6 +44,19 @@ async def list_active_departments(
 
 
 @router.get(
+    "/accessible",
+    response_model=list[DepartmentResponse],
+    summary="현재 사용자가 접근 가능한 부서 목록 조회 (계층 기반)",
+)
+async def list_accessible_departments(
+    current_login: Login = Depends(get_current_login_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> list[DepartmentResponse]:
+    service = DepartmentService(db)
+    return await service.list_accessible_departments(current_login.id, current_login.admin_yn)
+
+
+@router.get(
     "/{dept_code}",
     response_model=DepartmentResponse,
     summary="부서 단건 조회",

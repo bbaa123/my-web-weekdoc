@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.domain.auth.repositories.user_repository import UserRepository
+from server.app.domain.department.repositories.department_repository import DepartmentRepository
 from server.app.domain.login.models.login import Login
 from server.app.domain.weekly_reports.repositories.weekly_report_repository import WeeklyReportRepository
 from server.app.domain.weekly_reports.schemas.weekly_report_schemas import (
@@ -70,26 +71,51 @@ class WeeklyReportService:
         await self.repo.delete(report)
         await self.db.commit()
 
+    async def _get_accessible_dept_codes(self, login_id: str, is_admin: bool) -> list[str] | None:
+        """
+        사용자가 접근 가능한 부서 코드 목록 반환.
+        - admin 또는 최상위 부서장: None (전체 접근)
+        - 일반 사용자: 본인 부서 + 직속 하위 부서 코드 목록
+        """
+        if is_admin:
+            return None
+
+        user_repo = UserRepository(self.db)
+        user = await user_repo.get_by_id(login_id)
+        if not user or not user.department:
+            return None
+
+        dept_repo = DepartmentRepository(self.db)
+        dept = await dept_repo.get_by_code(user.department)
+        if not dept or not dept.parent_dept_code:
+            # 최상위 부서이면 전체 접근
+            return None
+
+        children = await dept_repo.list_by_parent_code(user.department)
+        return [user.department] + [c.dept_code for c in children]
+
     async def list_team_reports(
         self, current_login: Login, department: Optional[str] = None
     ) -> list[TeamWeeklyReportResponse]:
         """
-        팀 주간보고 목록 조회.
-        - admin + department 지정: 해당 부서의 모든 보고서 조회
-        - admin + department 미지정: 전체 보고서 조회 (부서 정보 포함)
-        - non-admin: 자신의 부서 보고서 조회
+        팀 주간보고 목록 조회 (모든 사용자 부서 선택 가능, 계층 권한 적용).
+        - department 지정: 해당 부서 보고서 조회 (접근 가능 범위 내)
+        - department 미지정:
+          - admin / 최상위 부서장: 전체 보고서
+          - 일반 사용자: 접근 가능한 부서의 보고서 전체
         """
-        if current_login.admin_yn:
-            if department:
-                rows = await self.repo.list_with_author_by_department(department)
-            else:
-                rows = await self.repo.list_all_with_author()
+        accessible = await self._get_accessible_dept_codes(current_login.id, current_login.admin_yn)
+
+        if department:
+            # 접근 가능 범위 검증 (accessible=None이면 전체 허용)
+            if accessible is not None and department not in accessible:
+                raise HTTPException(status_code=403, detail="해당 부서에 대한 접근 권한이 없습니다.")
+            rows = await self.repo.list_with_author_by_department(department)
         else:
-            user_repo = UserRepository(self.db)
-            user = await user_repo.get_by_id(current_login.id)
-            if not user or not user.department:
-                return []
-            rows = await self.repo.list_with_author_by_department(user.department)
+            if accessible is None:
+                rows = await self.repo.list_all_with_author()
+            else:
+                rows = await self.repo.list_with_author_by_departments(accessible)
 
         results = []
         for report, author_name, dept in rows:

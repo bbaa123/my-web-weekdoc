@@ -11,6 +11,7 @@ from server.app.domain.department.schemas.department_schemas import (
     DepartmentResponse,
     DepartmentUpdate,
 )
+from server.app.domain.auth.repositories.user_repository import UserRepository
 
 
 class DepartmentService:
@@ -27,6 +28,32 @@ class DepartmentService:
         """사용 중인 부서 목록 조회"""
         departments = await self.repo.list_active()
         return [DepartmentResponse.model_validate(d) for d in departments]
+
+    async def list_accessible_departments(self, login_id: str, is_admin: bool) -> list[DepartmentResponse]:
+        """
+        로그인 사용자가 접근 가능한 부서 목록 조회 (계층 기반).
+        - admin: 전체 활성 부서
+        - 최상위 부서장 (parent_dept_code 없음): 전체 활성 부서
+        - 중간/일반 부서원: 본인 부서 + 직속 하위 부서 (parent_dept_code = 본인 dept_code)
+        """
+        if is_admin:
+            return await self.list_active_departments()
+
+        user_repo = UserRepository(self.db)
+        user = await user_repo.get_by_id(login_id)
+        if not user or not user.department:
+            return await self.list_active_departments()
+
+        dept = await self.repo.get_by_code(user.department)
+        if not dept or not dept.parent_dept_code:
+            # 최상위 부서이거나 부서 정보를 찾을 수 없는 경우 전체 반환
+            return await self.list_active_departments()
+
+        # 본인 부서 + 직속 하위 부서
+        children = await self.repo.list_by_parent_code(user.department)
+        own = [DepartmentResponse.model_validate(dept)]
+        child_responses = [DepartmentResponse.model_validate(c) for c in children]
+        return own + child_responses
 
     async def get_department(self, dept_code: str) -> DepartmentResponse:
         """부서 단건 조회"""
