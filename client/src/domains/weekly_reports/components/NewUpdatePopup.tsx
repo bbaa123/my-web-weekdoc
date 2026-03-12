@@ -43,24 +43,24 @@ const WORK_TYPE_CHIPS = [
   { val: '기타업무', label: '기타업무' },
 ];
 
-const PRIORITY_CHIPS = [
+const STATUS_CHIPS = [
   {
-    val: 'LOW',
-    label: '낮음',
-    idle: 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-400',
-    active: 'bg-slate-500 text-white border-slate-500',
+    val: '진행',
+    label: '진행',
+    idle: 'bg-blue-50 text-blue-600 border-blue-200 hover:border-blue-400',
+    active: 'bg-blue-500 text-white border-blue-500',
   },
   {
-    val: 'MED',
-    label: '보통',
-    idle: 'bg-amber-50 text-amber-600 border-amber-200 hover:border-amber-400',
-    active: 'bg-amber-500 text-white border-amber-500',
-  },
-  {
-    val: 'HIGH',
-    label: '높음',
+    val: '중단',
+    label: '중단',
     idle: 'bg-red-50 text-red-600 border-red-200 hover:border-red-400',
     active: 'bg-red-500 text-white border-red-500',
+  },
+  {
+    val: '완료',
+    label: '완료',
+    idle: 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:border-emerald-400',
+    active: 'bg-emerald-500 text-white border-emerald-500',
   },
 ];
 
@@ -98,7 +98,7 @@ interface FormState {
   this_week: string;
   next_week: string;
   progress: number;
-  priority: string;
+  status: string;
   issues: string;
 }
 
@@ -114,7 +114,7 @@ function makeInitialForm(): FormState {
     this_week: '',
     next_week: '',
     progress: 0,
-    priority: '',
+    status: '',
     issues: '',
   };
 }
@@ -178,7 +178,14 @@ export function NewUpdatePopup({ onClose, onSuccess }: NewUpdatePopupProps) {
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const update = <K extends keyof FormState>(field: K, value: FormState[K]) =>
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      const updated = { ...prev, [field]: value };
+      // 상태가 '완료'면 진행률 자동 100%
+      if (field === 'status' && value === '완료') {
+        updated.progress = 100;
+      }
+      return updated;
+    });
 
   const focus = (field: string) => setFocusedField(field);
   const blur = () => setFocusedField(null);
@@ -216,9 +223,9 @@ export function NewUpdatePopup({ onClose, onSuccess }: NewUpdatePopupProps) {
           this_week: form.this_week || null,
           next_week: form.next_week || null,
           progress: form.progress,
-          priority: form.priority || null,
+          priority: null,
           issues: form.issues || null,
-          status: final ? 'IN PROGRESS' : 'PENDING',
+          status: form.status || (final ? '진행' : null),
         },
       ];
       await createWeeklyReports(payload);
@@ -540,18 +547,18 @@ export function NewUpdatePopup({ onClose, onSuccess }: NewUpdatePopupProps) {
                 </div>
               </div>
 
-              {/* 우선순위 */}
+              {/* 상태 */}
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-2">우선순위</label>
+                <label className="block text-xs font-semibold text-slate-500 mb-2">상태</label>
                 <div className="flex gap-2">
-                  {PRIORITY_CHIPS.map(({ val, label, idle, active }) => (
+                  {STATUS_CHIPS.map(({ val, label, idle, active }) => (
                     <button
                       key={val}
                       type="button"
-                      onClick={() => update('priority', form.priority === val ? '' : val)}
+                      onClick={() => update('status', form.status === val ? '' : val)}
                       className={cn(
                         'flex-1 text-xs font-bold py-2.5 rounded-xl border transition-all',
-                        form.priority === val ? active : idle,
+                        form.status === val ? active : idle,
                       )}
                     >
                       {label}

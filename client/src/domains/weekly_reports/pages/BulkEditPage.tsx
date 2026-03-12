@@ -25,20 +25,16 @@ import type { WeeklyReport, WeeklyReportCreate } from '../types';
 
 const BRAND = '#FF6B00';
 
-const STATUS_OPTIONS = ['IN PROGRESS', 'COMPLETED', 'PENDING', 'DELAYED'];
+const STATUS_OPTIONS = ['진행', '중단', '완료'];
 const WORK_TYPE_OPTIONS = ['일반업무', '프로젝트', '기타업무'];
 const COMPANY_OPTIONS = ['세아홀딩스', '세아베스틸지주', '세아M&S', '세아특수강'];
-const PRIORITY_OPTIONS = [
-  { val: 'LOW', label: '낮음' },
-  { val: 'MED', label: '보통' },
-  { val: 'HIGH', label: '높음' },
-];
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────
 
 interface BulkRow {
   _key: string;
   _fromLastWeek?: boolean;
+  _isDirty?: boolean;
   weekly_reports_no?: number;
   work_type: string;
   company: string;
@@ -47,7 +43,6 @@ interface BulkRow {
   next_week: string;
   issues: string;
   progress: number;
-  priority: string;
   status: string;
 }
 
@@ -60,7 +55,6 @@ const COL_ORDER: Array<keyof BulkRow> = [
   'next_week',
   'issues',
   'progress',
-  'priority',
   'status',
 ];
 
@@ -92,7 +86,6 @@ function makeEmptyRow(): BulkRow {
     next_week: '',
     issues: '',
     progress: 0,
-    priority: '',
     status: '',
   };
 }
@@ -169,6 +162,7 @@ export function BulkEditPage() {
   const [rows, setRows] = useState<BulkRow[]>([makeEmptyRow()]);
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loadingCurrentWeek, setLoadingCurrentWeek] = useState(false);
   const [loadingLastWeek, setLoadingLastWeek] = useState(false);
   const [aiLoadingKeys, setAiLoadingKeys] = useState<Set<string>>(new Set());
 
@@ -178,6 +172,40 @@ export function BulkEditPage() {
   useEffect(() => {
     if (!user) navigate('/login', { replace: true });
   }, [user, navigate]);
+
+  // ── 이번 주차 기존 데이터 로드 ──────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!user) return;
+    setLoadingCurrentWeek(true);
+    fetchWeeklyReports()
+      .then((allReports: WeeklyReport[]) => {
+        const currentWeekReports = allReports.filter(
+          (r) => r.year === year && r.month === month && r.week_number === weekNumber,
+        );
+        if (currentWeekReports.length > 0) {
+          const loaded: BulkRow[] = currentWeekReports.map((r) => ({
+            _key: Math.random().toString(36).slice(2),
+            _isDirty: false,
+            weekly_reports_no: r.weekly_reports_no,
+            work_type: r.work_type ?? '',
+            company: r.company ?? '',
+            project_name: r.project_name ?? '',
+            this_week: r.this_week ?? '',
+            next_week: r.next_week ?? '',
+            issues: r.issues ?? '',
+            progress: r.progress ?? 0,
+            status: r.status ?? '',
+          }));
+          setRows(loaded);
+        }
+      })
+      .catch(() => {
+        // 로드 실패 시 빈 행 유지
+      })
+      .finally(() => setLoadingCurrentWeek(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // ── 행 추가 ─────────────────────────────────────────────────────────────
 
@@ -210,6 +238,14 @@ export function BulkEditPage() {
         // 업무유형이 프로젝트가 아니면 프로젝트명 초기화
         if (field === 'work_type' && value !== '프로젝트') {
           updated.project_name = '';
+        }
+        // 상태가 '완료'면 진행률 자동 100%
+        if (field === 'status' && value === '완료') {
+          updated.progress = 100;
+        }
+        // 기존 행(weekly_reports_no 있음)은 수정 시 dirty 표시
+        if (r.weekly_reports_no) {
+          updated._isDirty = true;
         }
         return updated;
       }),
@@ -296,7 +332,7 @@ export function BulkEditPage() {
           next_week: r.next_week || null,
           issues: r.issues || null,
           progress: r.progress,
-          priority: r.priority || null,
+          priority: null,
           status: r.status || null,
         }));
         promises.push(createWeeklyReports(payload));
@@ -313,7 +349,6 @@ export function BulkEditPage() {
             next_week: r.next_week || null,
             issues: r.issues || null,
             progress: r.progress,
-            priority: r.priority || null,
             status: r.status || null,
           }),
         );
@@ -370,7 +405,6 @@ export function BulkEditPage() {
         next_week: r.next_week ?? '',
         issues: r.issues ?? '',
         progress: r.progress ?? 0,
-        priority: r.priority ?? '',
         status: r.status ?? '',
       }));
 
@@ -505,6 +539,12 @@ export function BulkEditPage() {
 
       {/* ── 메인 그리드 ────────────────────────────────────────────────────── */}
       <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-6">
+        {loadingCurrentWeek && (
+          <div className="flex items-center gap-2 mb-4 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-600 font-medium">
+            <Loader2 size={14} className="animate-spin shrink-0" />
+            이번 주차 등록된 보고서를 불러오는 중...
+          </div>
+        )}
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
           {/* 가로 스크롤 컨테이너 */}
           <div className="overflow-x-auto">
@@ -546,10 +586,6 @@ export function BulkEditPage() {
                   <th className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide text-center min-w-[80px]">
                     진행률
                   </th>
-                  {/* 우선순위 */}
-                  <th className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide text-center min-w-[100px]">
-                    우선순위
-                  </th>
                   {/* 상태 */}
                   <th className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide text-center min-w-[130px]">
                     상태
@@ -575,16 +611,25 @@ export function BulkEditPage() {
                     !isRowEmpty(row) && isRowInvalid(row);
                   const isAiLoading = aiLoadingKeys.has(row._key);
                   const isProject = row.work_type === '프로젝트';
+                  const isDirtyExisting = !!row.weekly_reports_no && !!row._isDirty;
 
                   return (
                     <tr
                       key={row._key}
                       onClick={() => setActiveKey(row._key)}
                       className={`transition-colors ${
-                        isActive ? 'bg-orange-50/60' : 'hover:bg-slate-50/60'
+                        isActive
+                          ? 'bg-orange-50/60'
+                          : isDirtyExisting
+                            ? 'bg-blue-50/50 hover:bg-blue-50/70'
+                            : 'hover:bg-slate-50/60'
                       } ${isInvalid ? 'bg-red-50/40' : ''}`}
                       style={
-                        isActive ? { boxShadow: `inset 4px 0 0 ${BRAND}` } : undefined
+                        isActive
+                          ? { boxShadow: `inset 4px 0 0 ${BRAND}` }
+                          : isDirtyExisting
+                            ? { boxShadow: 'inset 4px 0 0 #3b82f6' }
+                            : undefined
                       }
                     >
                       {/* 행 번호 */}
@@ -602,6 +647,11 @@ export function BulkEditPage() {
                         {row.weekly_reports_no && (
                           <div className="mt-0.5 text-[9px] text-slate-300">
                             #{row.weekly_reports_no}
+                          </div>
+                        )}
+                        {isDirtyExisting && (
+                          <div className="mt-0.5 text-[9px] font-bold text-blue-500">
+                            수정중
                           </div>
                         )}
                       </td>
@@ -802,38 +852,6 @@ export function BulkEditPage() {
                         </div>
                       </td>
 
-                      {/* 우선순위 */}
-                      <td className="px-3 py-2 align-top">
-                        <select
-                          ref={(el) =>
-                            cellRefs.current.set(`${row._key}:priority`, el)
-                          }
-                          value={row.priority}
-                          onChange={(e) =>
-                            updateRow(row._key, 'priority', e.target.value)
-                          }
-                          onKeyDown={(e) =>
-                            handleCellKeyDown(e, row._key, 'priority')
-                          }
-                          onFocus={() => setActiveKey(row._key)}
-                          className={`${cellCls} cursor-pointer`}
-                          style={
-                            row.priority === 'HIGH'
-                              ? { color: '#ef4444' }
-                              : row.priority === 'MED'
-                                ? { color: '#f59e0b' }
-                                : {}
-                          }
-                        >
-                          <option value="">우선순위</option>
-                          {PRIORITY_OPTIONS.map((p) => (
-                            <option key={p.val} value={p.val}>
-                              {p.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-
                       {/* 상태 */}
                       <td className="px-3 py-2 align-top">
                         <select
@@ -849,6 +867,15 @@ export function BulkEditPage() {
                           }
                           onFocus={() => setActiveKey(row._key)}
                           className={`${cellCls} cursor-pointer`}
+                          style={
+                            row.status === '완료'
+                              ? { color: '#10b981', fontWeight: 700 }
+                              : row.status === '진행'
+                                ? { color: '#3b82f6', fontWeight: 700 }
+                                : row.status === '중단'
+                                  ? { color: '#ef4444', fontWeight: 700 }
+                                  : {}
+                          }
                         >
                           <option value="">상태 선택</option>
                           {STATUS_OPTIONS.map((s) => (
@@ -929,6 +956,10 @@ export function BulkEditPage() {
             작성 중인 행 (주황색 라인)
           </span>
           <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm border border-blue-300 bg-blue-50" />
+            수정 중인 기존 행 (파란색 라인)
+          </span>
+          <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-3 rounded-sm border border-red-300 bg-red-50" />
             필수값 누락 — 금주 진행 사항이 비어있는 행
           </span>
@@ -939,7 +970,8 @@ export function BulkEditPage() {
           <span>Tab 키로 다음 칸 이동, 마지막 칸에서 Tab → 새 행 자동 추가</span>
           <span>
             <span className="font-semibold text-slate-500">* 표시</span>는 필수 입력 항목 /
-            프로젝트명은 업무유형이 &apos;프로젝트&apos;일 때만 입력 가능
+            프로젝트명은 업무유형이 &apos;프로젝트&apos;일 때만 입력 가능 /
+            상태를 &apos;완료&apos;로 선택하면 진행률이 자동으로 100%가 됩니다
           </span>
         </div>
       </main>
