@@ -13,6 +13,7 @@ import type { WeeklyReportComment } from '../types';
 
 interface Props {
   reportNo: number;
+  panelMode?: boolean;
 }
 
 function formatDate(iso: string): string {
@@ -117,7 +118,7 @@ function CommentRow({
 
 // ─── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
 
-export function WeeklyReportComments({ reportNo }: Props) {
+export function WeeklyReportComments({ reportNo, panelMode = false }: Props) {
   const { user } = useAuthStore();
   const [comments, setComments] = useState<WeeklyReportComment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -228,6 +229,110 @@ export function WeeklyReportComments({ reportNo }: Props) {
       setEditTarget(null);
       setEditContent('');
     }
+  }
+
+  if (panelMode) {
+    return (
+      <div className="h-full flex flex-col overflow-hidden">
+        {/* 패널 헤더 */}
+        <div className="shrink-0 flex items-center gap-2 px-4 py-3 border-b border-slate-200 bg-gray-50">
+          <MessageCircle size={15} className="text-orange-500" />
+          <span className="text-sm font-semibold text-slate-700">
+            댓글{totalCount > 0 ? ` ${totalCount}` : ''}
+          </span>
+        </div>
+
+        {/* 댓글 목록 (스크롤) */}
+        <div className="flex-1 overflow-y-auto px-3 py-2">
+          {loading ? (
+            <p className="py-8 text-center text-sm text-slate-400">불러오는 중...</p>
+          ) : comments.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-400">아직 댓글이 없습니다.</p>
+          ) : (
+            <div className="flex flex-col gap-0.5">
+              {comments.map((comment) => (
+                <CommentRow
+                  key={comment.comment_id}
+                  comment={comment}
+                  currentLoginId={currentLoginId}
+                  isAdmin={isAdmin}
+                  onReply={handleReply}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 수정 폼 */}
+        {editTarget && (
+          <div className="shrink-0 border-t border-slate-200 bg-white px-3 py-2">
+            <div className="rounded-lg border border-orange-200 bg-orange-50 p-2.5">
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-xs text-orange-600 font-medium">댓글 수정</span>
+                <button
+                  onClick={() => { setEditTarget(null); setEditContent(''); }}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  onKeyDown={handleEditKeyDown}
+                  rows={2}
+                  className="flex-1 resize-none rounded border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none focus:border-orange-400"
+                />
+                <button
+                  onClick={handleEditSubmit}
+                  disabled={submitting || !editContent.trim()}
+                  className="flex items-center gap-1 rounded bg-orange-500 px-2.5 py-1 text-xs font-medium text-white hover:bg-orange-600 disabled:opacity-40"
+                >
+                  <Check size={13} />
+                  저장
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 하단 고정 입력창 */}
+        <div className="shrink-0 border-t border-slate-200 bg-white px-3 py-3">
+          {replyTarget && (
+            <div className="mb-2 flex items-center justify-between rounded bg-slate-100 px-3 py-1.5">
+              <span className="text-xs text-slate-600">
+                <span className="font-medium">{replyTarget.commenter_name}</span> 님에게 답글
+              </span>
+              <button onClick={() => setReplyTarget(null)} className="text-slate-400 hover:text-slate-600">
+                <X size={13} />
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <textarea
+              ref={inputRef}
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="댓글 입력 (Enter 등록)"
+              rows={2}
+              className="flex-1 resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none focus:border-orange-400 focus:bg-white transition-colors"
+            />
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || !newContent.trim()}
+              className="flex items-center gap-1 self-end rounded-lg bg-orange-500 px-3 py-2 text-xs font-medium text-white hover:bg-orange-600 disabled:opacity-40 transition-colors"
+            >
+              <Send size={13} />
+              등록
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
