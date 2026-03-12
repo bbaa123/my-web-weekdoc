@@ -24,7 +24,7 @@ python-multipart==0.0.6
 httpx==0.26.0
 
 # 외부 API 연동
-anthropic
+google-generativeai
 
 # 날짜/시간 처리
 python-dateutil==2.8.2
