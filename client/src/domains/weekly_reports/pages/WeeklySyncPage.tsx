@@ -1348,6 +1348,18 @@ export function WeeklySyncPage() {
             {/* 모든 사용자: 팀 보고서 탭에서 부서 선택 (계층 권한 적용) */}
             {activeTab === 'team' && (
               <div className="ml-auto px-4 flex items-center gap-2">
+                <button
+                  onClick={() => navigate('/weekly-sync/team-view')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all"
+                  style={{
+                    backgroundColor: '#FFF7F0',
+                    border: `1.5px solid ${BRAND}`,
+                    color: BRAND,
+                  }}
+                >
+                  <Users size={13} />
+                  피드 뷰로 보기
+                </button>
                 <span className="text-xs font-semibold whitespace-nowrap" style={{ color: BRAND }}>
                   부서 선택
                 </span>
