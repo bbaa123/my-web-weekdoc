@@ -1432,9 +1432,6 @@ export function WeeklySyncPage() {
                       <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
                         진도율
                       </th>
-                      <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: BRAND }}>
-                        AI 요약
-                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
@@ -1504,30 +1501,6 @@ export function WeeklySyncPage() {
                           <ProgressBar value={r.progress ?? 0} />
                         </td>
 
-                        {/* AI Summary */}
-                        <td className="px-4 py-4 max-w-[200px]" onClick={(e) => e.stopPropagation()}>
-                          {summarizingNos.has(r.weekly_reports_no) ? (
-                            <div className="flex items-center gap-1.5">
-                              <Loader2 size={13} className="animate-spin shrink-0" style={{ color: BRAND }} />
-                              <span className="text-xs" style={{ color: BRAND }}>분석 중...</span>
-                            </div>
-                          ) : r.summary ? (
-                            <p className="text-xs leading-snug line-clamp-2" style={{ color: '#c2440e' }}>
-                              {r.summary}
-                            </p>
-                          ) : (
-                            <button
-                              onClick={(e) => handleAiSummarize(r.weekly_reports_no, e)}
-                              disabled={!r.this_week}
-                              className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-lg border transition-all disabled:opacity-40"
-                              style={{ color: BRAND, borderColor: BRAND, backgroundColor: '#fff8f3' }}
-                              title={!r.this_week ? '금주 업무 내용이 없습니다' : 'AI로 요약하기'}
-                            >
-                              <Bot size={11} />
-                              요약
-                            </button>
-                          )}
-                        </td>
                       </tr>
                       );
                     })}

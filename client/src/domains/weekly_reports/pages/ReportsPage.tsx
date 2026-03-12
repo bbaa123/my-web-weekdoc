@@ -36,6 +36,7 @@ import {
 } from 'recharts';
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
+import { getCurrentWeekInfo } from '@/core/utils/date';
 import { NoticeBar, NOTICE_BAR_HEIGHT } from '@/domains/notice/components/NoticeBar';
 import { useNoticeStore } from '@/domains/notice/store';
 import { fetchAccessibleDepartments } from '@/domains/departments/api';
@@ -240,12 +241,11 @@ export function ReportsPage() {
   const isBarVisible = !isBarDismissed && barNotices.length > 0;
 
   // 필터 상태
-  const today = new Date();
-  const [filterYear, setFilterYear] = useState(String(today.getFullYear()));
-  const [filterMonth, setFilterMonth] = useState(
-    String(today.getMonth() + 1).padStart(2, '0')
-  );
-  const [filterWeek, setFilterWeek] = useState('1주차');
+  const { year: currentYear, month: currentMonth, weekNumber: currentWeekNumber } =
+    getCurrentWeekInfo();
+  const [filterYear, setFilterYear] = useState(currentYear);
+  const [filterMonth, setFilterMonth] = useState(currentMonth);
+  const [filterWeek, setFilterWeek] = useState(currentWeekNumber);
   const [filterDept, setFilterDept] = useState<string>('');
 
   // 부서 목록 상태
@@ -455,9 +455,9 @@ export function ReportsPage() {
         {/* ── 페이지 타이틀 ─────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-black text-slate-900">센터 주간 AI 리포트</h1>
+            <h1 className="text-2xl font-black text-slate-900">주간 AI 리포트</h1>
             <p className="text-sm text-slate-500 mt-1">
-              팀원들의 주간보고를 AI가 종합 분석하여 센터장 브리핑을 생성합니다
+              팀원들의 주간보고를 AI가 종합 분석하여 브리핑을 생성합니다
             </p>
           </div>
           <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -519,9 +519,9 @@ export function ReportsPage() {
               </select>
             </div>
 
-            {/* 주차 */}
+            {/* 주 */}
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-slate-500">주차</label>
+              <label className="text-xs font-semibold text-slate-500">주</label>
               <select
                 value={filterWeek}
                 onChange={(e) => setFilterWeek(e.target.value)}
