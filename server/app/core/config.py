@@ -149,7 +149,7 @@ class Settings(BaseSettings):
         description="Google Gemini API 키 (AI 요약/가이드 기능용)"
     )
     GEMINI_MODEL: str = Field(
-        default="gemini-1.5-flash",
+        default="gemini-2.0-flash",
         description="사용할 Gemini 모델 ID"
     )
 
