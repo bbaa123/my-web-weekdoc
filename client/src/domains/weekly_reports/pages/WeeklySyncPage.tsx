@@ -9,8 +9,6 @@ import {
   Users,
   Loader2,
   FileText,
-  AlertTriangle,
-  TrendingUp,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -1383,14 +1381,6 @@ export function WeeklySyncPage() {
       </header>
 
       <main className="max-w-[1400px] mx-auto px-6 py-8 space-y-6">
-        {/* ── AI 요약 티커 배너 ─────────────────────────────── */}
-        {(() => {
-          const summaryItems = teamReports
-            .filter((r) => r.summary)
-            .map((r) => ({ authorName: r.author_name || r.id, summary: r.summary! }));
-          return <SummaryTicker items={summaryItems} />;
-        })()}
-
         {/* ── 페이지 타이틀 + 버튼 ─────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -1543,95 +1533,13 @@ export function WeeklySyncPage() {
           </div>
         </div>
 
-        {/* ── Executive Summary ─────────────────────────────── */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-          <div className="flex flex-col lg:flex-row lg:items-start gap-6">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-lg">⚡</span>
-                <h2 className="text-base font-black text-slate-800">
-                  Executive Summary &amp; Issue Highlights
-                </h2>
-              </div>
-              {isTabLoading ? (
-                <p className="text-sm text-slate-400">로딩 중...</p>
-              ) : filtered.length === 0 ? (
-                <p className="text-sm text-slate-400">조회 결과가 없습니다.</p>
-              ) : (
-                <div className="text-sm text-slate-600 leading-relaxed space-y-1">
-                  <p>
-                    총{' '}
-                    <span className="font-bold text-slate-900">{summary.total}건</span>의 보고서 중
-                    평균 진행률은{' '}
-                    <span className="font-bold" style={{ color: BRAND }}>
-                      {summary.avgProgress}%
-                    </span>
-                    입니다.
-                  </p>
-                  {summary.delayed > 0 && (
-                    <p>
-                      <span className="font-bold text-red-600">{summary.delayed}건</span>의 항목이{' '}
-                      <span className="font-bold text-red-600">지연(DELAYED)</span> 상태로,
-                      즉각적인 조치가 필요합니다.
-                    </p>
-                  )}
-                  {summary.withIssues > 0 && (
-                    <p>
-                      <span className="font-bold text-amber-600">{summary.withIssues}건</span>의
-                      이슈가 등록되어 있습니다.
-                    </p>
-                  )}
-                  {issueHighlights.length > 0 && (
-                    <ul className="mt-2 space-y-1">
-                      {issueHighlights.map((iss, i) => (
-                        <li key={i} className="flex items-start gap-2 text-slate-500">
-                          <AlertTriangle
-                            size={13}
-                            className="text-amber-400 shrink-0 mt-0.5"
-                          />
-                          <span className="line-clamp-2">{iss}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* 완료율 원형 표시 */}
-            {!isTabLoading && filtered.length > 0 && (
-              <div className="flex flex-col items-center gap-1 shrink-0">
-                <div className="relative w-24 h-24">
-                  <svg className="w-full h-full -rotate-90" viewBox="0 0 80 80">
-                    <circle cx="40" cy="40" r="30" fill="none" stroke="#f1f5f9" strokeWidth="8" />
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="30"
-                      fill="none"
-                      stroke={BRAND}
-                      strokeWidth="8"
-                      strokeDasharray={`${(summary.completionRate / 100) * 188.4} 188.4`}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-xl font-black text-slate-800">
-                      {summary.completionRate}%
-                    </span>
-                  </div>
-                </div>
-                <p className="text-xs font-semibold text-slate-500">Completion Rate</p>
-                <div className="flex items-center gap-1 text-xs text-slate-400">
-                  <TrendingUp size={12} />
-                  <span>
-                    {summary.completed}/{summary.total}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        {/* ── AI Summary ─────────────────────────────── */}
+        {(() => {
+          const summaryItems = teamReports
+            .filter((r) => r.summary)
+            .map((r) => ({ authorName: r.author_name || r.id, summary: r.summary! }));
+          return <SummaryTicker items={summaryItems} />;
+        })()}
 
         {/* ── 테이블 ────────────────────────────────────────── */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
