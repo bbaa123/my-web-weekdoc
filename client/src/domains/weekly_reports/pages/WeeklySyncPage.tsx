@@ -1411,7 +1411,7 @@ export function WeeklySyncPage() {
               )}
             </button>
             <button
-              onClick={() => setShowNewModal(true)}
+              onClick={() => navigate('/weekly-sync/bulk-edit')}
               className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-xl shadow-sm hover:opacity-90 transition-all"
               style={{ backgroundColor: BRAND }}
             >

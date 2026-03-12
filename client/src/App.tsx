@@ -8,6 +8,7 @@ import { checkDatabaseConnection } from './domains/system/api';
 import { toast } from './core/utils/toast';
 import { LoginPage, RegisterPage } from './domains/auth';
 import { WeeklySyncPage } from './domains/weekly_reports/pages/WeeklySyncPage';
+import { BulkEditPage } from './domains/weekly_reports/pages/BulkEditPage';
 import { OrgChartPage } from './domains/org_chart/pages/OrgChartPage';
 import { MyPage } from './domains/users/pages/MyPage';
 import { PrivateRoute } from './core/auth/PrivateRoute';
@@ -101,6 +102,14 @@ function App() {
           element={
             <PrivateRoute>
               <WeeklySyncPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/weekly-sync/bulk-edit"
+          element={
+            <PrivateRoute>
+              <BulkEditPage />
             </PrivateRoute>
           }
         />
