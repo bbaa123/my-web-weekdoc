@@ -4,6 +4,8 @@ import type {
   AICenterBriefingResponse,
   AISummarizeResponse,
   AIGuideResponse,
+  SendReportEmailRequest,
+  SendReportEmailResponse,
   TeamWeeklyReport,
   WeeklyReport,
   WeeklyReportComment,
@@ -73,6 +75,16 @@ export async function aiGuideText(thisWeek: string): Promise<AIGuideResponse> {
   const response = await apiClient.post<AIGuideResponse>(
     '/api/v1/weekly-reports/ai/guide-text',
     { this_week: thisWeek }
+  );
+  return response.data;
+}
+
+export async function sendReportEmail(
+  data: SendReportEmailRequest
+): Promise<SendReportEmailResponse> {
+  const response = await apiClient.post<SendReportEmailResponse>(
+    '/api/v1/weekly-reports/ai/send-report-email',
+    data
   );
   return response.data;
 }

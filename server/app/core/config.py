@@ -154,6 +154,34 @@ class Settings(BaseSettings):
     )
 
     # ====================
+    # Email (SMTP) Settings
+    # ====================
+    SMTP_HOST: str = Field(
+        default="smtp.gmail.com",
+        description="SMTP 서버 호스트"
+    )
+    SMTP_PORT: int = Field(
+        default=587,
+        description="SMTP 서버 포트 (587: STARTTLS, 465: SSL)"
+    )
+    SMTP_USER: Optional[str] = Field(
+        default=None,
+        description="SMTP 로그인 사용자명 (이메일 주소)"
+    )
+    SMTP_PASSWORD: Optional[str] = Field(
+        default=None,
+        description="SMTP 로그인 비밀번호 (앱 비밀번호 권장)"
+    )
+    SMTP_FROM_EMAIL: Optional[str] = Field(
+        default=None,
+        description="발신자 이메일 주소 (미설정 시 SMTP_USER 사용)"
+    )
+    SMTP_FROM_NAME: str = Field(
+        default="VNTG 주간보고",
+        description="발신자 표시 이름"
+    )
+
+    # ====================
     # Domain Plugin Settings
     # ====================
     # 여기에 도메인별 설정을 추가할 수 있습니다

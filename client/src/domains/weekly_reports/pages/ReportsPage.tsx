@@ -6,7 +6,7 @@
  * - 하단: 개별 보고서 아코디언 (접이식)
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bot,
@@ -18,6 +18,7 @@ import {
   Trophy,
   Lightbulb,
   Loader2,
+  Mail,
   Users,
   BarChart3,
 } from 'lucide-react';
@@ -43,6 +44,7 @@ import { fetchAccessibleDepartments } from '@/domains/departments/api';
 import type { Department } from '@/domains/departments/types';
 import { fetchTeamReports, aiCenterBriefing } from '../api';
 import type { AICenterBriefingResponse, TeamWeeklyReport } from '../types';
+import { EmailSendModal } from '../components/EmailSendModal';
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
 
@@ -259,6 +261,12 @@ export function ReportsPage() {
   const [briefingData, setBriefingData] = useState<AICenterBriefingResponse | null>(null);
   const [loadingBriefing, setLoadingBriefing] = useState(false);
   const [briefingError, setBriefingError] = useState<string | null>(null);
+
+  // 이메일 발송 모달
+  const [showEmailModal, setShowEmailModal] = useState(false);
+
+  // 브리핑 캡처 영역 ref (PDF 생성용)
+  const briefingCaptureRef = useRef<HTMLDivElement>(null);
 
   // 개별 보고서 섹션 표시 여부
   const [showDetails, setShowDetails] = useState(false);
@@ -620,15 +628,26 @@ export function ReportsPage() {
                   </p>
                 </div>
               </div>
-              <span
-                className="text-xs font-bold px-3 py-1 rounded-full"
-                style={{ backgroundColor: `${BRAND}15`, color: BRAND }}
-              >
-                AI 생성
-              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-xs font-bold px-3 py-1 rounded-full"
+                  style={{ backgroundColor: `${BRAND}15`, color: BRAND }}
+                >
+                  AI 생성
+                </span>
+                <button
+                  onClick={() => setShowEmailModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-white rounded-xl transition-all active:scale-95 shadow-sm"
+                  style={{ backgroundColor: BRAND }}
+                >
+                  <Mail size={14} />
+                  메일로 전송
+                </button>
+              </div>
             </div>
 
-            {/* 섹션 카드 3개 */}
+            {/* 섹션 카드 3개 + 차트 (PDF 캡처 영역) */}
+            <div ref={briefingCaptureRef} className="space-y-4 p-2">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {briefingSections.map((section) => (
                 <div
@@ -723,6 +742,7 @@ export function ReportsPage() {
                 )}
               </div>
             </div>
+            </div> {/* briefingCaptureRef 닫기 */}
           </div>
         )}
 
@@ -791,6 +811,18 @@ export function ReportsPage() {
         )}
 
       </main>
+
+      {/* ── 이메일 발송 모달 ─────────────────────────────────────────────── */}
+      <EmailSendModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        captureRef={briefingCaptureRef}
+        userEmail={user.email}
+        year={filterYear}
+        month={filterMonth}
+        weekNumber={filterWeek}
+        deptName={selectedDeptName}
+      />
     </div>
   );
 }

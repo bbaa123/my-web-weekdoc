@@ -106,3 +106,17 @@ export interface WeeklyReportCommentCreate {
 export interface WeeklyReportCommentUpdate {
   content: string;
 }
+
+export interface SendReportEmailRequest {
+  recipients: string[];
+  pdf_base64: string;
+  year: string;
+  month: string;
+  week_number: string;
+  dept_name: string;
+}
+
+export interface SendReportEmailResponse {
+  success: boolean;
+  message: string;
+}

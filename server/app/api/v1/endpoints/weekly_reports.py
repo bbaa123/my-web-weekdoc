@@ -16,6 +16,8 @@ from server.app.domain.weekly_reports.schemas.weekly_report_schemas import (
     AISummarizeResponse,
     AIGuideResponse,
     AIGuideRequest,
+    SendReportEmailRequest,
+    SendReportEmailResponse,
     TeamWeeklyReportResponse,
     WeeklyReportCommentCreate,
     WeeklyReportCommentResponse,
@@ -165,6 +167,35 @@ async def ai_guide_text(
     ai_svc = WeeklyReportAIService()
     guide_text = ai_svc.guide(data.this_week)
     return AIGuideResponse(guide=guide_text)
+
+
+# ─── 이메일 발송 엔드포인트 ───────────────────────────────────────────────────
+
+
+@router.post(
+    "/ai/send-report-email",
+    response_model=SendReportEmailResponse,
+    summary="AI 브리핑 리포트를 PDF로 변환하여 이메일 발송",
+)
+async def send_report_email(
+    data: SendReportEmailRequest,
+    current_login: Login = Depends(get_current_login_user),
+) -> SendReportEmailResponse:
+    from server.app.domain.weekly_reports.email_service import ReportEmailService
+
+    email_svc = ReportEmailService()
+    email_svc.send_report_email(
+        recipients=data.recipients,
+        pdf_base64=data.pdf_base64,
+        year=data.year,
+        month=data.month,
+        week_number=data.week_number,
+        dept_name=data.dept_name,
+    )
+    return SendReportEmailResponse(
+        success=True,
+        message=f"{len(data.recipients)}명에게 리포트가 성공적으로 전송되었습니다.",
+    )
 
 
 # ─── 댓글 엔드포인트 ──────────────────────────────────────────────────────────
