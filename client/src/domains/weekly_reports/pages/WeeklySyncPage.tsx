@@ -4,7 +4,6 @@ import {
   Bot,
   CalendarDays,
   LogOut,
-  Shield,
   User,
   Users,
   Loader2,
@@ -565,102 +564,7 @@ function NewReportModal({
   );
 }
 
-// ─── 서브 컴포넌트: FormRowCard (EditReportModal 전용) ───────────────────────
-
-function FormRowCard({
-  row,
-  onChange,
-}: {
-  row: FormRow;
-  index: number;
-  total: number;
-  onChange: (key: string, field: keyof FormRow, value: string | number) => void;
-  onRemove: (key: string) => void;
-}) {
-  const update = (field: keyof FormRow, value: string | number) =>
-    onChange(row._key, field, value);
-
-  const fieldCls =
-    'text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-orange-300 w-full';
-  const labelCls = 'text-xs font-semibold text-slate-500 mb-0.5 block';
-
-  return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className={labelCls}>년도</label>
-          <select value={row.year} onChange={(e) => update('year', e.target.value)} className={fieldCls}>
-            {YEAR_OPTIONS.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>월</label>
-          <select value={row.month} onChange={(e) => update('month', e.target.value)} className={fieldCls}>
-            {MONTH_OPTIONS.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>주차</label>
-          <select value={row.week_number} onChange={(e) => update('week_number', e.target.value)} className={fieldCls}>
-            {WEEK_OPTIONS.map((w) => <option key={w} value={w}>{w}</option>)}
-          </select>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelCls}>업무유형</label>
-          <select value={row.work_type} onChange={(e) => update('work_type', e.target.value)} className={fieldCls}>
-            <option value="">선택</option>
-            {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>담당회사</label>
-          <select value={row.company} onChange={(e) => update('company', e.target.value)} className={fieldCls}>
-            <option value="">선택</option>
-            {COMPANY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>상태</label>
-          <select value={row.status} onChange={(e) => update('status', e.target.value)} className={fieldCls}>
-            <option value="">선택</option>
-            {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-      </div>
-      {row.work_type === '프로젝트' && (
-        <div>
-          <label className={labelCls}>프로젝트명</label>
-          <input type="text" value={row.project_name} onChange={(e) => update('project_name', e.target.value)} placeholder="프로젝트명 입력" className={fieldCls} />
-        </div>
-      )}
-      <div>
-        <label className={labelCls}>진도율 ({row.progress}%)</label>
-        <input
-          type="range" min={0} max={100} step={5} value={row.progress}
-          onChange={(e) => update('progress', Number(e.target.value))}
-          className="w-full h-2 rounded-full appearance-none cursor-pointer"
-          style={{ background: `linear-gradient(to right, ${BRAND} ${row.progress}%, #e2e8f0 ${row.progress}%)`, accentColor: BRAND }}
-        />
-      </div>
-      <div>
-        <label className={labelCls}>이번주 업무</label>
-        <textarea rows={2} value={row.this_week} onChange={(e) => update('this_week', e.target.value)} placeholder="이번 주 업무 내용" className={`${fieldCls} resize-none`} />
-      </div>
-      <div>
-        <label className={labelCls}>다음주 계획</label>
-        <textarea rows={2} value={row.next_week} onChange={(e) => update('next_week', e.target.value)} placeholder="다음 주 계획" className={`${fieldCls} resize-none`} />
-      </div>
-      <div>
-        <label className={labelCls}>이슈사항</label>
-        <textarea rows={2} value={row.issues} onChange={(e) => update('issues', e.target.value)} placeholder="이슈 및 위험 요소 (선택)" className={`${fieldCls} resize-none`} />
-      </div>
-    </div>
-  );
-}
-
-// ─── 서브 컴포넌트: EditReportModal ─────────────────────────────────────────
+// ─── 서브 컴포넌트: EditReportModal (Read-only 상세 조회, 7:3 레이아웃) ──────
 
 function EditReportModal({
   report,
@@ -671,60 +575,19 @@ function EditReportModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [form, setForm] = useState<FormRow>({
-    _key: 'edit',
-    year: report.year,
-    month: report.month,
-    week_number: report.week_number,
-    company: report.company ?? '',
-    work_type: report.work_type ?? '',
-    project_name: report.project_name ?? '',
-    this_week: report.this_week ?? '',
-    next_week: report.next_week ?? '',
-    status: report.status ?? '',
-    priority: report.priority ?? '',
-    progress: report.progress ?? 0,
-    issues: report.issues ?? '',
-  });
-  const [saving, setSaving] = useState(false);
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
   const [deleting, setDeleting] = useState(false);
 
-  const updateField = (_key: string, field: keyof FormRow, value: string | number) => {
-    setForm((prev) => {
-      const updated = { ...prev, [field]: value };
-      // 상태가 '완료'면 진행률 자동 100%
-      if (field === 'status' && value === '완료') {
-        updated.progress = 100;
-      }
-      return updated;
-    });
-  };
+  const isOwner = user?.login_id === report.id;
+  const isAdmin = user?.is_admin ?? false;
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await updateWeeklyReport(report.weekly_reports_no, {
-        year: form.year,
-        month: form.month,
-        week_number: form.week_number,
-        company: form.company || null,
-        work_type: form.work_type || null,
-        project_name: form.work_type === '프로젝트' ? form.project_name || null : null,
-        this_week: form.this_week || null,
-        next_week: form.next_week || null,
-        progress: form.progress,
-        issues: form.issues || null,
-        status: form.status || null,
-      });
-      toast.success('주간보고가 수정되었습니다.');
-      onSuccess();
-      onClose();
-    } catch {
-      toast.error('수정 중 오류가 발생했습니다.');
-    } finally {
-      setSaving(false);
-    }
-  };
+  const teamRow = report as TeamWeeklyReport;
+  const displayName = teamRow.author_name || report.id;
+  const initials = displayName.slice(0, 2).toUpperCase();
+  const progress = report.progress ?? 0;
+  const progressColor =
+    progress <= 30 ? 'bg-red-500' : progress <= 70 ? 'bg-yellow-400' : 'bg-emerald-500';
 
   const handleDelete = async () => {
     if (!confirm('이 주간보고를 삭제하시겠습니까?')) return;
@@ -747,123 +610,156 @@ function EditReportModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[88vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 헤더 */}
+        {/* 상단 컬러바 */}
         <div
           className="h-1.5 rounded-t-2xl shrink-0"
           style={{ background: `linear-gradient(to right, ${BRAND}, #ff8c3a)` }}
         />
+
+        {/* 헤더 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
-          <div>
-            <h2 className="text-lg font-black text-slate-900">Edit Weekly Report</h2>
-            <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
-              <User size={11} />
-              {report.id}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* 본문 */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          <FormRowCard
-            row={form}
-            index={0}
-            total={1}
-            onChange={updateField}
-            onRemove={() => {}}
-          />
-          <WeeklyReportComments reportNo={report.weekly_reports_no} />
-        </div>
-
-        {/* 푸터 */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 shrink-0">
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            className="flex items-center gap-1.5 text-sm font-semibold text-red-500 hover:text-red-700 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-all"
-          >
-            {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-            삭제
-          </button>
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="text-sm font-semibold text-slate-500 border border-slate-200 px-4 py-1.5 rounded-lg hover:bg-slate-50 transition-all"
-            >
-              취소
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-1.5 text-sm font-bold text-white px-4 py-1.5 rounded-lg shadow-sm hover:opacity-90 disabled:opacity-50 transition-all"
+          <div className="flex items-center gap-3">
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
               style={{ backgroundColor: BRAND }}
             >
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              저장
+              {initials}
+            </div>
+            <div>
+              <h2 className="text-base font-black text-slate-900">
+                {report.project_name || report.work_type || '주간보고서'}
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {displayName} · {report.year}년 {report.month}월 {report.week_number}
+                {report.company && ` · ${report.company}`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {isOwner && (
+              <button
+                onClick={() => { onClose(); navigate('/weekly-sync/bulk-edit'); }}
+                className="text-xs font-bold px-3 py-1.5 rounded-lg border transition-all hover:opacity-80"
+                style={{ color: BRAND, borderColor: BRAND, backgroundColor: '#fff8f3' }}
+              >
+                수정하기
+              </button>
+            )}
+            {(isOwner || isAdmin) && (
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex items-center gap-1 text-xs font-semibold text-red-500 hover:text-red-700 border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-all"
+              >
+                {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                삭제
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600 transition-colors rounded-lg p-1.5 hover:bg-slate-100"
+            >
+              <X size={18} />
             </button>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
 
-// ─── 서브 컴포넌트: SummaryTicker ────────────────────────────────────────────
+        {/* 본문: 7:3 분할 */}
+        <div className="flex flex-1 overflow-hidden">
 
-interface SummaryTickerProps {
-  items: { authorName: string; summary: string }[];
-}
+          {/* ── 좌측 70%: 내용 ── */}
+          <div className="flex-[7] overflow-y-auto px-7 py-6 space-y-5">
 
-function SummaryTicker({ items }: SummaryTickerProps) {
-  if (items.length === 0) return null;
+            {/* 상태 + 진행률 + 업무유형 배지 */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <StatusBadge status={report.status} />
+              <div className="flex items-center gap-2">
+                <div className="w-28 h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${progressColor}`}
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <span className="text-sm font-black" style={{ color: BRAND }}>
+                  {progress}%
+                </span>
+              </div>
+              {report.work_type && (
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+                  {report.work_type}
+                </span>
+              )}
+              {teamRow.department && (
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-600">
+                  {teamRow.department}
+                </span>
+              )}
+            </div>
 
-  const tickerText = items.map((i) => `${i.authorName}: ${i.summary}`).join('　　•　　');
-  // 두 배로 복사해서 끊김 없는 루프 구현
-  const fullText = `${tickerText}　　•　　${tickerText}`;
+            {/* 이번주 업무 카드 */}
+            <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-1 h-4 rounded-full" style={{ backgroundColor: BRAND }} />
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  이번주 업무
+                </span>
+              </div>
+              <p className="text-sm text-slate-800 leading-7 whitespace-pre-wrap">
+                {report.this_week || (
+                  <span className="text-slate-300 italic">내용이 없습니다.</span>
+                )}
+              </p>
+            </div>
 
-  return (
-    <div
-      className="w-full overflow-hidden flex items-center gap-3 px-4 py-2.5 rounded-xl shadow-sm"
-      style={{ backgroundColor: BRAND }}
-    >
-      {/* 라벨 */}
-      <div className="flex items-center gap-1.5 shrink-0">
-        <span className="text-white text-xs font-black uppercase tracking-widest whitespace-nowrap">
-          AI Summary
-        </span>
-        <span className="w-1.5 h-1.5 rounded-full bg-white/60 shrink-0" />
-      </div>
+            {/* 차주 계획 카드 */}
+            <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-1 h-4 rounded-full bg-blue-400" />
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  차주 계획
+                </span>
+              </div>
+              <p className="text-sm text-slate-800 leading-7 whitespace-pre-wrap">
+                {report.next_week || (
+                  <span className="text-slate-300 italic">내용이 없습니다.</span>
+                )}
+              </p>
+            </div>
 
-      {/* 스크롤 텍스트 */}
-      <div className="flex-1 overflow-hidden">
-        <div
-          className="whitespace-nowrap text-white/90 text-xs font-medium"
-          style={{
-            display: 'inline-block',
-            animation: 'summaryTicker 30s linear infinite',
-          }}
-        >
-          {fullText}
+            {/* 이슈/특이사항 카드 (내용이 있을 때만) */}
+            {report.issues && (
+              <div className="rounded-xl border border-amber-100 bg-amber-50 p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="w-1 h-4 rounded-full bg-amber-500" />
+                  <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">
+                    이슈 / 특이사항
+                  </span>
+                </div>
+                <p className="text-sm text-amber-900 leading-7 whitespace-pre-wrap">
+                  {report.issues}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* 구분선 */}
+          <div className="w-px bg-slate-100 shrink-0" />
+
+          {/* ── 우측 30%: 댓글 패널 ── */}
+          <div className="flex-[3] bg-gray-50 flex flex-col overflow-hidden min-w-0">
+            <WeeklyReportComments reportNo={report.weekly_reports_no} panelMode />
+          </div>
+
         </div>
       </div>
-
-      <style>{`
-        @keyframes summaryTicker {
-          0%   { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-      `}</style>
     </div>
   );
 }
+
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 
@@ -1477,14 +1373,6 @@ export function WeeklySyncPage() {
             )}
           </div>
         </div>
-
-        {/* ── AI Summary ─────────────────────────────── */}
-        {(() => {
-          const summaryItems = teamReports
-            .filter((r) => r.summary)
-            .map((r) => ({ authorName: r.author_name || r.id, summary: r.summary! }));
-          return <SummaryTicker items={summaryItems} />;
-        })()}
 
         {/* ── 테이블 ────────────────────────────────────────── */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
