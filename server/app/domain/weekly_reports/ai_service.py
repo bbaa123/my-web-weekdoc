@@ -1,23 +1,79 @@
 """
-WeeklyReport AI Service - AI 요약 및 가이드 기능
+WeeklyReport AI Service - AI 요약 및 가이드 기능 (Google Gemini 사용)
 """
 
-import anthropic
+import time
+
+import google.generativeai as genai
 from fastapi import HTTPException
 
 from server.app.core.config import settings
 
+# 무료 티어 rate limit 대응: 최대 재시도 횟수 및 대기 시간
+_MAX_RETRIES = 3
+_RETRY_DELAYS = [2, 4, 8]  # 지수 백오프 (초)
+
+
+def _call_gemini_with_retry(model: genai.GenerativeModel, prompt: str, max_tokens: int) -> str:
+    """
+    Gemini API 호출 + 재시도 로직.
+
+    무료 티어의 분당 요청 제한(RPM) 초과 시 자동으로 재시도합니다.
+
+    Args:
+        model: Gemini GenerativeModel 인스턴스
+        prompt: 프롬프트 텍스트
+        max_tokens: 최대 출력 토큰 수
+
+    Returns:
+        생성된 텍스트
+
+    Raises:
+        HTTPException: 재시도 횟수를 초과하거나 복구 불가능한 오류 발생 시
+    """
+    generation_config = genai.types.GenerationConfig(max_output_tokens=max_tokens)
+
+    last_exc: Exception | None = None
+    for attempt, delay in enumerate([0] + _RETRY_DELAYS):
+        if delay:
+            time.sleep(delay)
+        try:
+            response = model.generate_content(prompt, generation_config=generation_config)
+            return response.text.strip()
+        except Exception as exc:
+            exc_str = str(exc).lower()
+            # rate limit(429) 또는 일시적 서버 오류(500, 503)만 재시도
+            if any(code in exc_str for code in ("429", "quota", "resource_exhausted", "500", "503")):
+                last_exc = exc
+                if attempt < _MAX_RETRIES:
+                    continue
+            # 복구 불가능한 오류는 즉시 실패
+            raise HTTPException(
+                status_code=502,
+                detail=f"AI 서비스 오류가 발생했습니다: {exc}",
+            )
+
+    raise HTTPException(
+        status_code=429,
+        detail=(
+            "AI 서비스 요청이 일시적으로 제한되었습니다. "
+            "잠시 후 다시 시도해 주세요. "
+            f"(마지막 오류: {last_exc})"
+        ),
+    )
+
 
 class WeeklyReportAIService:
-    """주간보고 AI 분석 서비스 (Anthropic Claude 사용)"""
+    """주간보고 AI 분석 서비스 (Google Gemini 사용)"""
 
     def __init__(self) -> None:
-        if not settings.ANTHROPIC_API_KEY:
+        if not settings.GEMINI_API_KEY:
             raise HTTPException(
                 status_code=503,
-                detail="AI 서비스가 설정되지 않았습니다. ANTHROPIC_API_KEY를 환경 변수에 설정해주세요.",
+                detail="AI 서비스가 설정되지 않았습니다. GEMINI_API_KEY를 환경 변수에 설정해주세요.",
             )
-        self._client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        self._model = genai.GenerativeModel(settings.GEMINI_MODEL)
 
     def summarize(self, this_week: str) -> str:
         """
@@ -39,12 +95,7 @@ class WeeklyReportAIService:
             f"[금주 진행 사항]\n{this_week}"
         )
 
-        message = self._client.messages.create(
-            model=settings.AI_MODEL,
-            max_tokens=200,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return message.content[0].text.strip()
+        return _call_gemini_with_retry(self._model, prompt, max_tokens=200)
 
     def guide(self, this_week: str) -> str:
         """
@@ -72,9 +123,4 @@ class WeeklyReportAIService:
             f"[금주 진행 사항]\n{this_week}"
         )
 
-        message = self._client.messages.create(
-            model=settings.AI_MODEL,
-            max_tokens=600,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return message.content[0].text.strip()
+        return _call_gemini_with_retry(self._model, prompt, max_tokens=600)

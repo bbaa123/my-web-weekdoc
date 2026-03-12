@@ -144,13 +144,13 @@ class Settings(BaseSettings):
     # ====================
     # AI Settings
     # ====================
-    ANTHROPIC_API_KEY: Optional[str] = Field(
+    GEMINI_API_KEY: Optional[str] = Field(
         default=None,
-        description="Anthropic API 키 (AI 요약/가이드 기능용)"
+        description="Google Gemini API 키 (AI 요약/가이드 기능용)"
     )
-    AI_MODEL: str = Field(
-        default="claude-haiku-4-5-20251001",
-        description="사용할 Claude 모델 ID"
+    GEMINI_MODEL: str = Field(
+        default="gemini-1.5-flash",
+        description="사용할 Gemini 모델 ID"
     )
 
     # ====================
