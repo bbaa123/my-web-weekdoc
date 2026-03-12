@@ -125,6 +125,27 @@ class AICenterBriefingResponse(BaseModel):
     dept_stats: list[DeptStatItem]
 
 
+# ─── 이메일 발송 스키마 ───────────────────────────────────────────────────────
+
+
+class SendReportEmailRequest(BaseModel):
+    """PDF 리포트 이메일 발송 요청"""
+
+    recipients: list[str]
+    pdf_base64: str
+    year: str
+    month: str
+    week_number: str
+    dept_name: str
+
+
+class SendReportEmailResponse(BaseModel):
+    """PDF 리포트 이메일 발송 응답"""
+
+    success: bool
+    message: str
+
+
 # ─── 댓글 스키마 ─────────────────────────────────────────────────────────────
 
 
