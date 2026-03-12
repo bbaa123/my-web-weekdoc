@@ -45,31 +45,23 @@ const MONTH_OPTIONS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10
 const WEEK_OPTIONS = ['1주차', '2주차', '3주차', '4주차', '5주차'];
 const CATEGORY_OPTIONS = ['일반업무', '기타업무', '프로젝트'];
 const COMPANY_OPTIONS = ['세아홀딩스', '세아베스틸지주', '세아M&S', '세아특수강'];
-const STATUS_OPTIONS = ['COMPLETED', 'IN PROGRESS', 'PENDING', 'DELAYED'];
-const PRIORITY_OPTIONS = ['HIGH', 'MED', 'LOW'];
+const STATUS_OPTIONS = ['진행', '중단', '완료'];
 
 const STATUS_DISPLAY: Record<string, { label: string; cls: string }> = {
-  COMPLETED: { label: 'COMPLETED', cls: 'bg-slate-800 text-white' },
-  'IN PROGRESS': { label: 'IN PROGRESS', cls: 'bg-blue-100 text-blue-700' },
-  PENDING: { label: 'PENDING', cls: 'bg-amber-100 text-amber-700' },
-  DELAYED: { label: 'DELAYED', cls: 'bg-red-100 text-red-600' },
+  진행: { label: '진행', cls: 'bg-blue-100 text-blue-700' },
+  중단: { label: '중단', cls: 'bg-red-100 text-red-600' },
+  완료: { label: '완료', cls: 'bg-emerald-100 text-emerald-700' },
+  // 기존 영문 데이터 호환
+  COMPLETED: { label: '완료', cls: 'bg-emerald-100 text-emerald-700' },
+  'IN PROGRESS': { label: '진행', cls: 'bg-blue-100 text-blue-700' },
+  PENDING: { label: '진행', cls: 'bg-blue-100 text-blue-700' },
+  DELAYED: { label: '중단', cls: 'bg-red-100 text-red-600' },
   // 기존 한글 데이터 호환
-  완료: { label: 'COMPLETED', cls: 'bg-slate-800 text-white' },
-  진행중: { label: 'IN PROGRESS', cls: 'bg-blue-100 text-blue-700' },
-  대기: { label: 'PENDING', cls: 'bg-amber-100 text-amber-700' },
-  지연: { label: 'DELAYED', cls: 'bg-red-100 text-red-600' },
-  보류: { label: 'ON HOLD', cls: 'bg-purple-100 text-purple-700' },
-  취소: { label: 'CANCELED', cls: 'bg-slate-100 text-slate-500' },
-};
-
-const PRIORITY_DISPLAY: Record<string, { label: string; dot: string; cls: string }> = {
-  HIGH: { label: 'HIGH', dot: 'bg-red-500', cls: 'text-red-600' },
-  MED: { label: 'MED', dot: 'bg-amber-400', cls: 'text-amber-600' },
-  LOW: { label: 'LOW', dot: 'bg-slate-400', cls: 'text-slate-500' },
-  // 기존 한글 데이터 호환
-  높음: { label: 'HIGH', dot: 'bg-red-500', cls: 'text-red-600' },
-  중간: { label: 'MED', dot: 'bg-amber-400', cls: 'text-amber-600' },
-  낮음: { label: 'LOW', dot: 'bg-slate-400', cls: 'text-slate-500' },
+  진행중: { label: '진행', cls: 'bg-blue-100 text-blue-700' },
+  대기: { label: '진행', cls: 'bg-blue-100 text-blue-700' },
+  지연: { label: '중단', cls: 'bg-red-100 text-red-600' },
+  보류: { label: '중단', cls: 'bg-red-100 text-red-600' },
+  취소: { label: '중단', cls: 'bg-red-100 text-red-600' },
 };
 
 const PAGE_SIZE = 10;
@@ -164,19 +156,6 @@ function StatusBadge({ status }: { status: string | null }) {
   );
 }
 
-// ─── 서브 컴포넌트: PriorityBadge ───────────────────────────────────────────
-
-function PriorityBadge({ priority }: { priority: string | null }) {
-  if (!priority) return <span className="text-xs text-slate-400">-</span>;
-  const mapped = PRIORITY_DISPLAY[priority];
-  if (!mapped) return <span className="text-xs text-slate-500">{priority}</span>;
-  return (
-    <div className={`flex items-center gap-1.5 ${mapped.cls}`}>
-      <span className={`w-2 h-2 rounded-full inline-block ${mapped.dot}`} />
-      <span className="text-xs font-bold">{mapped.label}</span>
-    </div>
-  );
-}
 
 // ─── 서브 컴포넌트: FilterSelect ─────────────────────────────────────────────
 
@@ -227,7 +206,13 @@ function NewReportModal({
   const [continueAdding, setContinueAdding] = useState(false);
 
   const update = (field: keyof FormRow, value: string | number) =>
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      const updated = { ...prev, [field]: value };
+      if (field === 'status' && value === '완료') {
+        updated.progress = 100;
+      }
+      return updated;
+    });
 
   const handleSave = async (final: boolean) => {
     setSaving(true);
@@ -243,7 +228,7 @@ function NewReportModal({
           this_week: form.this_week || null,
           next_week: form.next_week || null,
           progress: form.progress,
-          priority: form.priority || null,
+          priority: null,
           issues: form.issues || null,
           status: form.status || null,
         },
@@ -512,28 +497,6 @@ function NewReportModal({
                 />
               </div>
 
-              {/* 우선순위 라디오 그룹 */}
-              <div>
-                <label className={labelCls}>우선순위</label>
-                <div className="flex gap-2">
-                  {[
-                    { val: 'LOW', label: '낮음', color: 'bg-slate-100 text-slate-600 border-slate-200', activeColor: 'bg-slate-500 text-white border-slate-500' },
-                    { val: 'MED', label: '보통', color: 'bg-amber-50 text-amber-600 border-amber-200', activeColor: 'bg-amber-500 text-white border-amber-500' },
-                    { val: 'HIGH', label: '높음', color: 'bg-red-50 text-red-600 border-red-200', activeColor: 'bg-red-500 text-white border-red-500' },
-                  ].map(({ val, label, color, activeColor }) => (
-                    <button
-                      key={val}
-                      type="button"
-                      onClick={() => update('priority', val)}
-                      className={`flex-1 text-xs font-bold py-2 rounded-lg border transition-all ${
-                        form.priority === val ? activeColor : color
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -665,13 +628,6 @@ function FormRowCard({
             {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
-        <div>
-          <label className={labelCls}>중요도</label>
-          <select value={row.priority} onChange={(e) => update('priority', e.target.value)} className={fieldCls}>
-            <option value="">선택</option>
-            {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </div>
       </div>
       {row.work_type === '프로젝트' && (
         <div>
@@ -734,7 +690,14 @@ function EditReportModal({
   const [deleting, setDeleting] = useState(false);
 
   const updateField = (_key: string, field: keyof FormRow, value: string | number) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      const updated = { ...prev, [field]: value };
+      // 상태가 '완료'면 진행률 자동 100%
+      if (field === 'status' && value === '완료') {
+        updated.progress = 100;
+      }
+      return updated;
+    });
   };
 
   const handleSave = async () => {
@@ -750,7 +713,6 @@ function EditReportModal({
         this_week: form.this_week || null,
         next_week: form.next_week || null,
         progress: form.progress,
-        priority: form.priority || null,
         issues: form.issues || null,
         status: form.status || null,
       });
@@ -1072,10 +1034,10 @@ export function WeeklySyncPage() {
   const summary = useMemo(() => {
     const total = filtered.length;
     const completed = filtered.filter(
-      (r) => r.status === 'COMPLETED' || r.status === '완료'
+      (r) => r.status === '완료' || r.status === 'COMPLETED'
     ).length;
     const delayed = filtered.filter(
-      (r) => r.status === 'DELAYED' || r.status === '지연'
+      (r) => r.status === '중단' || r.status === 'DELAYED' || r.status === '지연'
     ).length;
     const withIssues = filtered.filter((r) => r.issues && r.issues.trim() !== '').length;
     const avgProgress =
@@ -1137,25 +1099,12 @@ export function WeeklySyncPage() {
           let statusBg = '#f1f5f9',
             statusColor = '#64748b',
             statusLabel = r.status ?? '-';
-          if (r.status === 'COMPLETED' || r.status === '완료') {
-            statusBg = '#1e293b'; statusColor = '#ffffff'; statusLabel = 'COMPLETED';
-          } else if (r.status === 'IN PROGRESS' || r.status === '진행중') {
-            statusBg = '#dbeafe'; statusColor = '#1d4ed8'; statusLabel = 'IN PROGRESS';
-          } else if (r.status === 'PENDING' || r.status === '대기') {
-            statusBg = '#fef3c7'; statusColor = '#d97706'; statusLabel = 'PENDING';
-          } else if (r.status === 'DELAYED' || r.status === '지연') {
-            statusBg = '#fee2e2'; statusColor = '#dc2626'; statusLabel = 'DELAYED';
-          }
-
-          let priorityColor = '#64748b',
-            priorityDot = '#94a3b8',
-            priorityLabel = r.priority ?? '-';
-          if (r.priority === 'HIGH' || r.priority === '높음') {
-            priorityColor = '#dc2626'; priorityDot = '#ef4444'; priorityLabel = 'HIGH';
-          } else if (r.priority === 'MED' || r.priority === '중간') {
-            priorityColor = '#d97706'; priorityDot = '#fbbf24'; priorityLabel = 'MED';
-          } else if (r.priority === 'LOW' || r.priority === '낮음') {
-            priorityLabel = 'LOW';
+          if (r.status === '완료' || r.status === 'COMPLETED') {
+            statusBg = '#d1fae5'; statusColor = '#065f46'; statusLabel = '완료';
+          } else if (r.status === '진행' || r.status === 'IN PROGRESS' || r.status === 'PENDING' || r.status === '진행중' || r.status === '대기') {
+            statusBg = '#dbeafe'; statusColor = '#1d4ed8'; statusLabel = '진행';
+          } else if (r.status === '중단' || r.status === 'DELAYED' || r.status === '지연' || r.status === '보류' || r.status === '취소') {
+            statusBg = '#fee2e2'; statusColor = '#dc2626'; statusLabel = '중단';
           }
 
           const barColor =
@@ -1185,9 +1134,6 @@ export function WeeklySyncPage() {
               <td style="padding:10px 12px;vertical-align:middle;color:#475569;font-size:12px;max-width:200px;word-break:break-word;">${esc(r.next_week) || '-'}</td>
               <td style="padding:10px 12px;vertical-align:middle;white-space:nowrap;">
                 ${r.status ? `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:9999px;background:${statusBg};color:${statusColor};">${statusLabel}</span>` : '<span style="font-size:11px;color:#94a3b8;">-</span>'}
-              </td>
-              <td style="padding:10px 12px;vertical-align:middle;white-space:nowrap;">
-                ${r.priority ? `<div style="display:flex;align-items:center;gap:4px;"><span style="width:7px;height:7px;border-radius:50%;background:${priorityDot};display:inline-block;"></span><span style="font-size:11px;font-weight:700;color:${priorityColor};">${priorityLabel}</span></div>` : '<span style="font-size:11px;color:#94a3b8;">-</span>'}
               </td>
               <td style="padding:10px 12px;vertical-align:middle;min-width:90px;">
                 <div style="display:flex;align-items:center;gap:6px;">
@@ -1226,9 +1172,8 @@ export function WeeklySyncPage() {
               <th style="${thStyle}white-space:nowrap;">Category</th>
               <th style="${thStyle}">This Week's Achievements</th>
               <th style="${thStyle}">Next Week's Plan</th>
-              <th style="${thStyle}white-space:nowrap;">Status</th>
-              <th style="${thStyle}white-space:nowrap;">Priority</th>
-              <th style="${thStyle}white-space:nowrap;">Progress</th>
+              <th style="${thStyle}white-space:nowrap;">상태</th>
+              <th style="${thStyle}white-space:nowrap;">진도율</th>
             </tr>
           </thead>
           <tbody>${rowsHtml}</tbody>
@@ -1580,9 +1525,6 @@ export function WeeklySyncPage() {
                         상태
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
-                        중요도
-                      </th>
-                      <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
                         진도율
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: BRAND }}>
@@ -1650,11 +1592,6 @@ export function WeeklySyncPage() {
                         {/* Status */}
                         <td className="px-4 py-4 whitespace-nowrap">
                           <StatusBadge status={r.status} />
-                        </td>
-
-                        {/* Priority */}
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <PriorityBadge priority={r.priority} />
                         </td>
 
                         {/* Progress */}
