@@ -1257,7 +1257,15 @@ export function WeeklySyncPage() {
               )}
             </button>
             <button
-              onClick={() => navigate('/weekly-sync/bulk-edit')}
+              onClick={() =>
+                navigate('/weekly-sync/bulk-edit', {
+                  state: {
+                    year: filterYear || currentYear,
+                    month: filterMonth || currentMonth,
+                    weekNumber: filterWeek || currentWeekNumber,
+                  },
+                })
+              }
               className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white rounded-xl shadow-sm hover:opacity-90 transition-all"
               style={{ backgroundColor: BRAND }}
             >

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Bot,
   CalendarDays,
   ChevronLeft,
+  ChevronRight,
   Loader2,
   Plus,
   Save,
@@ -28,6 +29,10 @@ const BRAND = '#FF6B00';
 const STATUS_OPTIONS = ['진행', '중단', '완료'];
 const WORK_TYPE_OPTIONS = ['일반업무', '프로젝트', '기타업무'];
 const COMPANY_OPTIONS = ['세아홀딩스', '세아베스틸지주', '세아M&S', '세아특수강'];
+
+const YEAR_OPTIONS = ['2025', '2026', '2027', '2028', '2029', '2030'];
+const MONTH_OPTIONS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+const WEEK_OPTIONS = ['1주차', '2주차', '3주차', '4주차', '5주차'];
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────
 
@@ -74,6 +79,42 @@ function makePrevWeekInfo(
     return { year, month: String(monthNum - 1).padStart(2, '0'), weekNumber: '5주차' };
   }
   return { year: String(parseInt(year, 10) - 1), month: '12', weekNumber: '5주차' };
+}
+
+function makeNextWeekInfo(
+  year: string,
+  month: string,
+  weekNumber: string,
+): { year: string; month: string; weekNumber: string } {
+  const weekNum = parseInt(weekNumber.replace('주차', ''), 10);
+  if (weekNum < 5) {
+    return { year, month, weekNumber: `${weekNum + 1}주차` };
+  }
+  const monthNum = parseInt(month, 10);
+  if (monthNum < 12) {
+    return { year, month: String(monthNum + 1).padStart(2, '0'), weekNumber: '1주차' };
+  }
+  return { year: String(parseInt(year, 10) + 1), month: '01', weekNumber: '1주차' };
+}
+
+/** 두 주차를 비교해 selWeek < curWeek 이면 true */
+function isBeforeWeek(
+  selYear: string,
+  selMonth: string,
+  selWeek: string,
+  curYear: string,
+  curMonth: string,
+  curWeek: string,
+): boolean {
+  const selVal =
+    parseInt(selYear) * 10000 +
+    parseInt(selMonth) * 100 +
+    parseInt(selWeek.replace('주차', ''), 10);
+  const curVal =
+    parseInt(curYear) * 10000 +
+    parseInt(curMonth) * 100 +
+    parseInt(curWeek.replace('주차', ''), 10);
+  return selVal < curVal;
 }
 
 function makeEmptyRow(): BulkRow {
@@ -152,12 +193,38 @@ function AutoTextarea({
 
 export function BulkEditPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = useAuthStore((s) => s.user);
 
-  const { year, month, weekNumber } = getCurrentWeekInfo();
-  const monthNum = parseInt(month, 10);
-  const weekNum = parseInt(weekNumber.replace('주차', ''), 10);
-  const title = `${year}년 ${monthNum}월 ${weekNum}주차 주간보고 작성`;
+  // 현재 실제 주차 정보 (오늘 날짜 기준)
+  const {
+    year: todayYear,
+    month: todayMonth,
+    weekNumber: todayWeek,
+  } = getCurrentWeekInfo();
+
+  // location.state로 전달된 주차가 있으면 그걸 초기값으로, 없으면 오늘 주차
+  const initState = location.state as
+    | { year?: string; month?: string; weekNumber?: string }
+    | null
+    | undefined;
+
+  const [selYear, setSelYear] = useState(initState?.year ?? todayYear);
+  const [selMonth, setSelMonth] = useState(initState?.month ?? todayMonth);
+  const [selWeek, setSelWeek] = useState(initState?.weekNumber ?? todayWeek);
+
+  // 드롭다운 open 상태
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [draftYear, setDraftYear] = useState(selYear);
+  const [draftMonth, setDraftMonth] = useState(selMonth);
+  const [draftWeek, setDraftWeek] = useState(selWeek);
+
+  const weekNum = parseInt(selWeek.replace('주차', ''), 10);
+  const monthNum = parseInt(selMonth, 10);
+  const title = `${selYear}년 ${monthNum}월 ${weekNum}주차 주간보고 작성`;
+
+  const isPastWeek = isBeforeWeek(selYear, selMonth, selWeek, todayYear, todayMonth, todayWeek);
+  const isThisWeek = selYear === todayYear && selMonth === todayMonth && selWeek === todayWeek;
 
   const [rows, setRows] = useState<BulkRow[]>([makeEmptyRow()]);
   const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -173,18 +240,20 @@ export function BulkEditPage() {
     if (!user) navigate('/login', { replace: true });
   }, [user, navigate]);
 
-  // ── 이번 주차 기존 데이터 로드 ──────────────────────────────────────────────
+  // ── 선택된 주차의 데이터 로드 ─────────────────────────────────────────────
 
   useEffect(() => {
     if (!user) return;
     setLoadingCurrentWeek(true);
+    setRows([makeEmptyRow()]);
+    setActiveKey(null);
     fetchWeeklyReports()
       .then((allReports: WeeklyReport[]) => {
-        const currentWeekReports = allReports.filter(
-          (r) => r.year === year && r.month === month && r.week_number === weekNumber,
+        const weekReports = allReports.filter(
+          (r) => r.year === selYear && r.month === selMonth && r.week_number === selWeek,
         );
-        if (currentWeekReports.length > 0) {
-          const loaded: BulkRow[] = currentWeekReports.map((r) => ({
+        if (weekReports.length > 0) {
+          const loaded: BulkRow[] = weekReports.map((r) => ({
             _key: Math.random().toString(36).slice(2),
             _isDirty: false,
             weekly_reports_no: r.weekly_reports_no,
@@ -204,8 +273,38 @@ export function BulkEditPage() {
         // 로드 실패 시 빈 행 유지
       })
       .finally(() => setLoadingCurrentWeek(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, selYear, selMonth, selWeek]);
+
+  // ── 주차 이동 ────────────────────────────────────────────────────────────
+
+  const goToPrevWeek = () => {
+    const prev = makePrevWeekInfo(selYear, selMonth, selWeek);
+    setSelYear(prev.year);
+    setSelMonth(prev.month);
+    setSelWeek(prev.weekNumber);
+  };
+
+  const goToNextWeek = () => {
+    const next = makeNextWeekInfo(selYear, selMonth, selWeek);
+    setSelYear(next.year);
+    setSelMonth(next.month);
+    setSelWeek(next.weekNumber);
+  };
+
+  const openDropdown = () => {
+    setDraftYear(selYear);
+    setDraftMonth(selMonth);
+    setDraftWeek(selWeek);
+    setDropdownOpen(true);
+  };
+
+  const applyDropdown = () => {
+    setSelYear(draftYear);
+    setSelMonth(draftMonth);
+    setSelWeek(draftWeek);
+    setDropdownOpen(false);
+  };
 
   // ── 행 추가 ─────────────────────────────────────────────────────────────
 
@@ -322,9 +421,9 @@ export function BulkEditPage() {
       // 신규 일괄 등록
       if (newRows.length > 0) {
         const payload: WeeklyReportCreate[] = newRows.map((r) => ({
-          year,
-          month,
-          week_number: weekNumber,
+          year: selYear,
+          month: selMonth,
+          week_number: selWeek,
           work_type: r.work_type || null,
           company: r.company || null,
           project_name: r.work_type === '프로젝트' ? r.project_name || null : null,
@@ -378,7 +477,7 @@ export function BulkEditPage() {
     setLoadingLastWeek(true);
     try {
       const allReports: WeeklyReport[] = await fetchWeeklyReports();
-      const prev = makePrevWeekInfo(year, month, weekNumber);
+      const prev = makePrevWeekInfo(selYear, selMonth, selWeek);
 
       const incomplete = allReports.filter(
         (r) =>
@@ -481,6 +580,113 @@ export function BulkEditPage() {
           <div className="flex items-center gap-2 min-w-0">
             <CalendarDays size={18} style={{ color: BRAND }} className="shrink-0" />
             <h1 className="text-base font-black text-slate-900 truncate">{title}</h1>
+            {/* 과거 주차 편집 경고 배지 */}
+            {isPastWeek && (
+              <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-300">
+                과거 기록 편집 중
+              </span>
+            )}
+          </div>
+
+          {/* ── 주차 네비게이션 바 ──────────────────────────────────────── */}
+          <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-1 py-1 shrink-0">
+            {/* 이전 주차 */}
+            <button
+              onClick={goToPrevWeek}
+              className="p-1.5 rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm transition-all"
+              title="이전 주차"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            {/* 현재 선택된 주차 표시 (클릭 시 드롭다운) */}
+            <div className="relative">
+              <button
+                onClick={openDropdown}
+                className="px-3 py-1 rounded-lg text-sm font-bold text-slate-700 hover:bg-white hover:shadow-sm transition-all min-w-[140px] text-center"
+                style={isThisWeek ? { color: BRAND } : {}}
+              >
+                {selYear}년 {monthNum}월 {weekNum}주차
+              </button>
+
+              {/* 드롭다운 패널 */}
+              {dropdownOpen && (
+                <>
+                  {/* 배경 오버레이 */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setDropdownOpen(false)}
+                  />
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 bg-white border border-slate-200 rounded-xl shadow-lg p-4 min-w-[240px]">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3">
+                      주차 직접 선택
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      {/* 연도 */}
+                      <select
+                        value={draftYear}
+                        onChange={(e) => setDraftYear(e.target.value)}
+                        className="w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                      >
+                        {YEAR_OPTIONS.map((y) => (
+                          <option key={y} value={y}>
+                            {y}년
+                          </option>
+                        ))}
+                      </select>
+                      {/* 월 */}
+                      <select
+                        value={draftMonth}
+                        onChange={(e) => setDraftMonth(e.target.value)}
+                        className="w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                      >
+                        {MONTH_OPTIONS.map((m) => (
+                          <option key={m} value={m}>
+                            {parseInt(m)}월
+                          </option>
+                        ))}
+                      </select>
+                      {/* 주차 */}
+                      <select
+                        value={draftWeek}
+                        onChange={(e) => setDraftWeek(e.target.value)}
+                        className="w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                      >
+                        {WEEK_OPTIONS.map((w) => (
+                          <option key={w} value={w}>
+                            {w}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex-1 py-1.5 text-xs font-semibold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 transition-all"
+                      >
+                        취소
+                      </button>
+                      <button
+                        onClick={applyDropdown}
+                        className="flex-1 py-1.5 text-xs font-bold text-white rounded-lg hover:opacity-90 transition-all"
+                        style={{ backgroundColor: BRAND }}
+                      >
+                        이동
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 다음 주차 */}
+            <button
+              onClick={goToNextWeek}
+              className="p-1.5 rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm transition-all"
+              title="다음 주차"
+            >
+              <ChevronRight size={16} />
+            </button>
           </div>
 
           {/* 기간 뱃지 */}
@@ -488,7 +694,7 @@ export function BulkEditPage() {
             className="px-2.5 py-1 rounded-full text-xs font-bold shrink-0"
             style={{ backgroundColor: '#fff3e8', color: BRAND }}
           >
-            {year}.{month} {weekNum}주차
+            {selYear}.{selMonth} {weekNum}주차
           </div>
 
           <div className="flex-1" />
@@ -542,7 +748,16 @@ export function BulkEditPage() {
         {loadingCurrentWeek && (
           <div className="flex items-center gap-2 mb-4 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-600 font-medium">
             <Loader2 size={14} className="animate-spin shrink-0" />
-            이번 주차 등록된 보고서를 불러오는 중...
+            {selYear}년 {monthNum}월 {weekNum}주차 보고서를 불러오는 중...
+          </div>
+        )}
+        {isPastWeek && !loadingCurrentWeek && (
+          <div className="flex items-center gap-2 mb-4 px-4 py-2.5 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700 font-medium">
+            <span className="text-base">⚠️</span>
+            <span>
+              <strong>과거 주차({selYear}년 {monthNum}월 {weekNum}주차)</strong>를 조회 중입니다.
+              수정 후 저장하면 해당 주차의 데이터가 업데이트됩니다.
+            </span>
           </div>
         )}
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
