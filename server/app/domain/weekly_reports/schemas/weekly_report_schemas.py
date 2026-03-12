@@ -96,6 +96,35 @@ class AIGuideRequest(BaseModel):
     this_week: str
 
 
+# ─── AI 센터 브리핑 스키마 ────────────────────────────────────────────────────
+
+
+class AICenterBriefingRequest(BaseModel):
+    """AI 센터 종합 브리핑 요청"""
+
+    year: str
+    month: str
+    week_number: str
+    department: Optional[str] = None
+
+
+class DeptStatItem(BaseModel):
+    """부서별 통계 항목"""
+
+    dept: str
+    completed: int
+    total: int
+
+
+class AICenterBriefingResponse(BaseModel):
+    """AI 센터 종합 브리핑 응답"""
+
+    briefing: str
+    total_reports: int
+    status_stats: dict[str, int]
+    dept_stats: list[DeptStatItem]
+
+
 # ─── 댓글 스키마 ─────────────────────────────────────────────────────────────
 
 

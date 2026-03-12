@@ -78,6 +78,26 @@ export interface WeeklyReportComment {
   replies: WeeklyReportComment[];
 }
 
+export interface DeptStatItem {
+  dept: string;
+  completed: number;
+  total: number;
+}
+
+export interface AICenterBriefingResponse {
+  briefing: string;
+  total_reports: number;
+  status_stats: Record<string, number>;
+  dept_stats: DeptStatItem[];
+}
+
+export interface AICenterBriefingRequest {
+  year: string;
+  month: string;
+  week_number: string;
+  department?: string | null;
+}
+
 export interface WeeklyReportCommentCreate {
   content: string;
   parent_comment_id?: number | null;

@@ -97,6 +97,43 @@ class WeeklyReportAIService:
 
         return _call_gemini_with_retry(self._model, prompt, max_tokens=200)
 
+    def center_briefing(self, reports_summary: str, total_count: int) -> str:
+        """
+        여러 팀원의 주간보고 내용을 종합하여 센터장용 브리핑 생성.
+
+        Args:
+            reports_summary: 모든 팀원의 this_week/next_week/issues 합산 텍스트
+            total_count: 보고서 총 건수
+
+        Returns:
+            센터 종합 브리핑 텍스트
+        """
+        if not reports_summary or not reports_summary.strip():
+            raise HTTPException(status_code=400, detail="브리핑을 생성할 보고서 내용이 없습니다.")
+
+        prompt = (
+            f"당신은 기업 센터장을 위한 분석 비서입니다.\n"
+            f"아래는 총 {total_count}명의 팀원 주간보고 내용입니다.\n\n"
+            "[팀원 주간보고 전체 내용]\n"
+            f"{reports_summary}\n\n"
+            "위 내용을 분석하여 센터장을 위한 주간 종합 브리핑을 작성해주세요.\n"
+            "다음 세 가지 섹션을 반드시 정확히 아래 형식으로 작성해주세요:\n\n"
+            "##이번 주 3대 핵심 성과\n"
+            "• (성과 1)\n"
+            "• (성과 2)\n"
+            "• (성과 3)\n\n"
+            "##즉시 확인이 필요한 리스크\n"
+            "• (리스크 항목)\n\n"
+            "##조직 관리 제언\n"
+            "• (제언 항목)\n\n"
+            "각 섹션은 구체적이고 실행 가능한 내용으로 작성해주세요.\n"
+            "리스크가 없을 경우 '특이 리스크 없음'으로 작성해주세요.\n"
+            "불릿 포인트(•)는 반드시 각 항목 앞에 사용해주세요.\n"
+            "전체 분량은 600자 이내로 간결하게 작성해주세요."
+        )
+
+        return _call_gemini_with_retry(self._model, prompt, max_tokens=1500)
+
     def guide(self, this_week: str) -> str:
         """
         주간보고 this_week 내용의 미흡한 점을 분석하여 피드백 반환.
