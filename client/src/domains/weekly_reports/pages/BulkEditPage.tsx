@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+  AlertTriangle,
   Bot,
   CalendarDays,
   ChevronLeft,
@@ -21,6 +22,7 @@ import {
   updateWeeklyReport,
 } from '../api';
 import type { WeeklyReport, WeeklyReportCreate } from '../types';
+import { getDueDateStatus } from '../types';
 
 // ─── 상수 ─────────────────────────────────────────────────────────────────
 
@@ -49,6 +51,7 @@ interface BulkRow {
   issues: string;
   progress: number;
   status: string;
+  due_date: string; // 완료 예정일 (YYYY-MM-DD), 필수
 }
 
 // Tab 탐색 가능한 컬럼 순서
@@ -61,6 +64,7 @@ const COL_ORDER: Array<keyof BulkRow> = [
   'issues',
   'progress',
   'status',
+  'due_date',
 ];
 
 // ─── 유틸 ─────────────────────────────────────────────────────────────────
@@ -128,6 +132,7 @@ function makeEmptyRow(): BulkRow {
     issues: '',
     progress: 0,
     status: '',
+    due_date: '',
   };
 }
 
@@ -265,6 +270,7 @@ export function BulkEditPage() {
             issues: r.issues ?? '',
             progress: r.progress ?? 0,
             status: r.status ?? '',
+            due_date: r.due_date ?? '',
           }));
           setRows(loaded);
         }
@@ -385,12 +391,12 @@ export function BulkEditPage() {
 
   // ── 유효성 검사 ─────────────────────────────────────────────────────────
 
-  // 행이 완전히 비어있으면 저장 대상에서 제외 (필수 필드가 모두 비어있는 경우)
   const isRowEmpty = (row: BulkRow) =>
     !row.this_week.trim() && !row.work_type.trim() && !row.company.trim();
 
-  // 저장 대상 행 중에서 필수값 누락 여부
-  const isRowInvalid = (row: BulkRow) => !row.this_week.trim();
+  // 필수값: 금주 진행 사항 + 완료 예정일
+  const isRowInvalid = (row: BulkRow) => !row.this_week.trim() || !row.due_date.trim();
+  const isMissingDueDate = (row: BulkRow) => !isRowEmpty(row) && !row.due_date.trim();
 
   // ── 전체 저장 (INSERT + UPDATE) ──────────────────────────────────────────
 
@@ -400,25 +406,26 @@ export function BulkEditPage() {
       toast.error('저장할 내용이 없습니다. 최소 한 행을 입력하세요.');
       return;
     }
-    const invalid = nonEmpty.filter(isRowInvalid);
-    if (invalid.length > 0) {
-      toast.error(
-        `${invalid.length}개 행의 필수값(금주 진행 사항)이 누락되었습니다. 확인해주세요.`,
-      );
-      // 첫 번째 오류 행으로 포커스
-      setActiveKey(invalid[0]._key);
+    const missingThis = nonEmpty.filter((r) => !r.this_week.trim());
+    if (missingThis.length > 0) {
+      toast.error(`${missingThis.length}개 행의 필수값(금주 진행 사항)이 누락되었습니다.`);
+      setActiveKey(missingThis[0]._key);
+      return;
+    }
+    const missingDue = nonEmpty.filter((r) => !r.due_date.trim());
+    if (missingDue.length > 0) {
+      toast.error(`${missingDue.length}개 행의 완료 예정일이 누락되었습니다. 완료 예정일은 필수 입력 항목입니다.`);
+      setActiveKey(missingDue[0]._key);
       return;
     }
 
     setSaving(true);
     try {
-      // 신규(INSERT)와 기존(UPDATE) 분리
       const newRows = nonEmpty.filter((r) => !r.weekly_reports_no);
       const existingRows = nonEmpty.filter((r) => !!r.weekly_reports_no);
 
       const promises: Promise<unknown>[] = [];
 
-      // 신규 일괄 등록
       if (newRows.length > 0) {
         const payload: WeeklyReportCreate[] = newRows.map((r) => ({
           year: selYear,
@@ -433,11 +440,11 @@ export function BulkEditPage() {
           progress: r.progress,
           priority: null,
           status: r.status || null,
+          due_date: r.due_date || null,
         }));
         promises.push(createWeeklyReports(payload));
       }
 
-      // 기존 항목 개별 수정
       for (const r of existingRows) {
         promises.push(
           updateWeeklyReport(r.weekly_reports_no!, {
@@ -449,6 +456,7 @@ export function BulkEditPage() {
             issues: r.issues || null,
             progress: r.progress,
             status: r.status || null,
+            due_date: r.due_date || null,
           }),
         );
       }
@@ -496,7 +504,8 @@ export function BulkEditPage() {
       const imported: BulkRow[] = incomplete.map((r) => ({
         _key: Math.random().toString(36).slice(2),
         _fromLastWeek: true,
-        weekly_reports_no: r.weekly_reports_no,
+        // 이전 주차 가져오기 시 due_date 초기화 (새로 입력 필요)
+        due_date: '',
         work_type: r.work_type ?? '',
         company: r.company ?? '',
         project_name: r.project_name ?? '',
@@ -515,7 +524,9 @@ export function BulkEditPage() {
         return hasContent ? [...prev, ...imported] : imported;
       });
 
-      toast.success(`이전 주차 미완료 항목 ${imported.length}개를 불러왔습니다.`);
+      toast.success(
+        `이전 주차 미완료 항목 ${imported.length}개를 불러왔습니다. ⚠️ 완료 예정일을 새로 입력해주세요.`,
+      );
     } catch {
       toast.error('이전 주차 데이터를 불러오는 데 실패했습니다.');
     } finally {
@@ -557,6 +568,19 @@ export function BulkEditPage() {
   const disabledCellCls =
     'w-full text-sm text-slate-300 bg-slate-50 border border-slate-100 rounded-md px-2 py-1.5 cursor-not-allowed';
 
+  // 지연 건수
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const overdueCount = rows.filter((r) => {
+    if (!r.due_date || !r.due_date.trim()) return false;
+    const s = getDueDateStatus(r.due_date, r.status);
+    return s === 'overdue';
+  }).length;
+  const dueTodayCount = rows.filter((r) => {
+    if (!r.due_date || !r.due_date.trim()) return false;
+    return getDueDateStatus(r.due_date, r.status) === 'today';
+  }).length;
+
   // ── 렌더 ─────────────────────────────────────────────────────────────────
 
   return (
@@ -580,7 +604,6 @@ export function BulkEditPage() {
           <div className="flex items-center gap-2 min-w-0">
             <CalendarDays size={18} style={{ color: BRAND }} className="shrink-0" />
             <h1 className="text-base font-black text-slate-900 truncate">{title}</h1>
-            {/* 과거 주차 편집 경고 배지 */}
             {isPastWeek && (
               <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700 border border-yellow-300">
                 과거 기록 편집 중
@@ -590,7 +613,6 @@ export function BulkEditPage() {
 
           {/* ── 주차 네비게이션 바 ──────────────────────────────────────── */}
           <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-1 py-1 shrink-0">
-            {/* 이전 주차 */}
             <button
               onClick={goToPrevWeek}
               className="p-1.5 rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm transition-all"
@@ -599,7 +621,6 @@ export function BulkEditPage() {
               <ChevronLeft size={16} />
             </button>
 
-            {/* 현재 선택된 주차 표시 (클릭 시 드롭다운) */}
             <div className="relative">
               <button
                 onClick={openDropdown}
@@ -609,10 +630,8 @@ export function BulkEditPage() {
                 {selYear}년 {monthNum}월 {weekNum}주차
               </button>
 
-              {/* 드롭다운 패널 */}
               {dropdownOpen && (
                 <>
-                  {/* 배경 오버레이 */}
                   <div
                     className="fixed inset-0 z-40"
                     onClick={() => setDropdownOpen(false)}
@@ -622,40 +641,31 @@ export function BulkEditPage() {
                       주차 직접 선택
                     </p>
                     <div className="flex flex-col gap-2">
-                      {/* 연도 */}
                       <select
                         value={draftYear}
                         onChange={(e) => setDraftYear(e.target.value)}
                         className="w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-300"
                       >
                         {YEAR_OPTIONS.map((y) => (
-                          <option key={y} value={y}>
-                            {y}년
-                          </option>
+                          <option key={y} value={y}>{y}년</option>
                         ))}
                       </select>
-                      {/* 월 */}
                       <select
                         value={draftMonth}
                         onChange={(e) => setDraftMonth(e.target.value)}
                         className="w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-300"
                       >
                         {MONTH_OPTIONS.map((m) => (
-                          <option key={m} value={m}>
-                            {parseInt(m)}월
-                          </option>
+                          <option key={m} value={m}>{parseInt(m)}월</option>
                         ))}
                       </select>
-                      {/* 주차 */}
                       <select
                         value={draftWeek}
                         onChange={(e) => setDraftWeek(e.target.value)}
                         className="w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-300"
                       >
                         {WEEK_OPTIONS.map((w) => (
-                          <option key={w} value={w}>
-                            {w}
-                          </option>
+                          <option key={w} value={w}>{w}</option>
                         ))}
                       </select>
                     </div>
@@ -679,7 +689,6 @@ export function BulkEditPage() {
               )}
             </div>
 
-            {/* 다음 주차 */}
             <button
               onClick={goToNextWeek}
               className="p-1.5 rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm transition-all"
@@ -689,7 +698,6 @@ export function BulkEditPage() {
             </button>
           </div>
 
-          {/* 기간 뱃지 */}
           <div
             className="px-2.5 py-1 rounded-full text-xs font-bold shrink-0"
             style={{ backgroundColor: '#fff3e8', color: BRAND }}
@@ -697,9 +705,21 @@ export function BulkEditPage() {
             {selYear}.{selMonth} {weekNum}주차
           </div>
 
+          {/* 지연/오늘 마감 배지 */}
+          {overdueCount > 0 && (
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-600 border border-red-200 shrink-0">
+              <AlertTriangle size={11} />
+              지연 {overdueCount}건
+            </span>
+          )}
+          {dueTodayCount > 0 && (
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-600 border border-orange-200 shrink-0">
+              오늘 마감 {dueTodayCount}건
+            </span>
+          )}
+
           <div className="flex-1" />
 
-          {/* 버튼 그룹 */}
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleImportLastWeek}
@@ -760,59 +780,63 @@ export function BulkEditPage() {
             </span>
           </div>
         )}
+
+        {/* 완료 예정일 미입력 행 알림 */}
+        {rows.some(isMissingDueDate) && (
+          <div className="flex items-center gap-2 mb-4 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">
+            <AlertTriangle size={14} className="shrink-0" />
+            <span>
+              <strong>완료 예정일</strong>이 입력되지 않은 행이 있습니다. 저장 전 반드시 입력해주세요.
+            </span>
+          </div>
+        )}
+
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-          {/* 가로 스크롤 컨테이너 */}
           <div className="overflow-x-auto">
-            <table className="text-sm border-collapse" style={{ minWidth: '1500px' }}>
+            <table className="text-sm border-collapse" style={{ minWidth: '1700px' }}>
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  {/* # */}
                   <th className="w-10 px-3 py-3 text-xs font-bold text-slate-400 text-center sticky left-0 bg-slate-50 z-10">
                     #
                   </th>
-                  {/* 업무유형 */}
                   <th className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide text-left min-w-[120px]">
                     업무유형
                     <span className="ml-1 text-red-400">*</span>
                   </th>
-                  {/* 업체명 */}
                   <th className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide text-left min-w-[130px]">
                     업체명
                   </th>
-                  {/* 프로젝트명 */}
                   <th className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide text-left min-w-[150px]">
                     프로젝트명
                     <span className="ml-1 text-xs font-normal text-slate-400">(프로젝트 시)</span>
                   </th>
-                  {/* 금주 진행 사항 */}
                   <th className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide text-left min-w-[280px]">
                     금주 진행 사항
                     <span className="ml-1 text-red-400">*</span>
                   </th>
-                  {/* 차주 계획 */}
                   <th className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide text-left min-w-[220px]">
                     차주 계획
                   </th>
-                  {/* 특이사항 */}
                   <th className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide text-left min-w-[160px]">
                     특이사항 / 이슈
                   </th>
-                  {/* 진행률 */}
                   <th className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide text-center min-w-[80px]">
                     진행률
                   </th>
-                  {/* 상태 */}
                   <th className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide text-center min-w-[130px]">
                     상태
                   </th>
-                  {/* AI */}
+                  {/* 완료 예정일 - 필수 */}
+                  <th className="px-3 py-3 text-xs font-bold text-red-600 uppercase tracking-wide text-center min-w-[150px] bg-red-50">
+                    완료 예정일
+                    <span className="ml-1 text-red-400">*</span>
+                  </th>
                   <th
                     className="px-3 py-3 text-xs font-bold uppercase tracking-wide text-center min-w-[50px]"
                     style={{ color: BRAND }}
                   >
                     AI
                   </th>
-                  {/* 삭제 */}
                   <th className="px-3 py-3 text-xs font-bold text-slate-400 text-center w-10">
                     삭제
                   </th>
@@ -822,11 +846,14 @@ export function BulkEditPage() {
               <tbody className="divide-y divide-slate-100">
                 {rows.map((row, idx) => {
                   const isActive = activeKey === row._key;
-                  const isInvalid =
-                    !isRowEmpty(row) && isRowInvalid(row);
+                  const missingDue = !isRowEmpty(row) && !row.due_date.trim();
+                  const isInvalid = !isRowEmpty(row) && !row.this_week.trim();
                   const isAiLoading = aiLoadingKeys.has(row._key);
                   const isProject = row.work_type === '프로젝트';
                   const isDirtyExisting = !!row.weekly_reports_no && !!row._isDirty;
+                  const dueDateStatus = getDueDateStatus(row.due_date || null, row.status || null);
+                  const isOverdue = dueDateStatus === 'overdue';
+                  const isDueToday = dueDateStatus === 'today';
 
                   return (
                     <tr
@@ -874,24 +901,16 @@ export function BulkEditPage() {
                       {/* 업무유형 */}
                       <td className="px-3 py-2 align-top">
                         <select
-                          ref={(el) =>
-                            cellRefs.current.set(`${row._key}:work_type`, el)
-                          }
+                          ref={(el) => cellRefs.current.set(`${row._key}:work_type`, el)}
                           value={row.work_type}
-                          onChange={(e) =>
-                            updateRow(row._key, 'work_type', e.target.value)
-                          }
-                          onKeyDown={(e) =>
-                            handleCellKeyDown(e, row._key, 'work_type')
-                          }
+                          onChange={(e) => updateRow(row._key, 'work_type', e.target.value)}
+                          onKeyDown={(e) => handleCellKeyDown(e, row._key, 'work_type')}
                           onFocus={() => setActiveKey(row._key)}
                           className={cellCls + ' cursor-pointer'}
                         >
                           <option value="">유형 선택</option>
                           {WORK_TYPE_OPTIONS.map((w) => (
-                            <option key={w} value={w}>
-                              {w}
-                            </option>
+                            <option key={w} value={w}>{w}</option>
                           ))}
                         </select>
                       </td>
@@ -899,43 +918,29 @@ export function BulkEditPage() {
                       {/* 업체명 */}
                       <td className="px-3 py-2 align-top">
                         <select
-                          ref={(el) =>
-                            cellRefs.current.set(`${row._key}:company`, el)
-                          }
+                          ref={(el) => cellRefs.current.set(`${row._key}:company`, el)}
                           value={row.company}
-                          onChange={(e) =>
-                            updateRow(row._key, 'company', e.target.value)
-                          }
-                          onKeyDown={(e) =>
-                            handleCellKeyDown(e, row._key, 'company')
-                          }
+                          onChange={(e) => updateRow(row._key, 'company', e.target.value)}
+                          onKeyDown={(e) => handleCellKeyDown(e, row._key, 'company')}
                           onFocus={() => setActiveKey(row._key)}
                           className={cellCls + ' cursor-pointer'}
                         >
                           <option value="">업체 선택</option>
                           {COMPANY_OPTIONS.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
+                            <option key={c} value={c}>{c}</option>
                           ))}
                         </select>
                       </td>
 
-                      {/* 프로젝트명 — 업무유형이 '프로젝트'일 때만 활성 */}
+                      {/* 프로젝트명 */}
                       <td className="px-3 py-2 align-top">
                         {isProject ? (
                           <input
-                            ref={(el) =>
-                              cellRefs.current.set(`${row._key}:project_name`, el)
-                            }
+                            ref={(el) => cellRefs.current.set(`${row._key}:project_name`, el)}
                             type="text"
                             value={row.project_name}
-                            onChange={(e) =>
-                              updateRow(row._key, 'project_name', e.target.value)
-                            }
-                            onKeyDown={(e) =>
-                              handleCellKeyDown(e, row._key, 'project_name')
-                            }
+                            onChange={(e) => updateRow(row._key, 'project_name', e.target.value)}
+                            onKeyDown={(e) => handleCellKeyDown(e, row._key, 'project_name')}
                             onFocus={() => setActiveKey(row._key)}
                             placeholder="프로젝트명 입력"
                             className={cellCls}
@@ -960,14 +965,12 @@ export function BulkEditPage() {
                       >
                         <AutoTextarea
                           textareaRef={(el) => {
-                            if (el)
-                              cellRefs.current.set(`${row._key}:this_week`, el);
+                            if (el) cellRefs.current.set(`${row._key}:this_week`, el);
                           }}
                           value={row.this_week}
                           onChange={(v) => updateRow(row._key, 'this_week', v)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Tab')
-                              handleCellKeyDown(e, row._key, 'this_week');
+                            if (e.key === 'Tab') handleCellKeyDown(e, row._key, 'this_week');
                           }}
                           onFocus={() => setActiveKey(row._key)}
                           placeholder="이번 주 진행 사항을 입력하세요"
@@ -984,14 +987,12 @@ export function BulkEditPage() {
                       <td className="px-3 py-2 align-top">
                         <AutoTextarea
                           textareaRef={(el) => {
-                            if (el)
-                              cellRefs.current.set(`${row._key}:next_week`, el);
+                            if (el) cellRefs.current.set(`${row._key}:next_week`, el);
                           }}
                           value={row.next_week}
                           onChange={(v) => updateRow(row._key, 'next_week', v)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Tab')
-                              handleCellKeyDown(e, row._key, 'next_week');
+                            if (e.key === 'Tab') handleCellKeyDown(e, row._key, 'next_week');
                           }}
                           onFocus={() => setActiveKey(row._key)}
                           placeholder="다음 주 계획"
@@ -1003,14 +1004,12 @@ export function BulkEditPage() {
                       <td className="px-3 py-2 align-top">
                         <AutoTextarea
                           textareaRef={(el) => {
-                            if (el)
-                              cellRefs.current.set(`${row._key}:issues`, el);
+                            if (el) cellRefs.current.set(`${row._key}:issues`, el);
                           }}
                           value={row.issues}
                           onChange={(v) => updateRow(row._key, 'issues', v)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Tab')
-                              handleCellKeyDown(e, row._key, 'issues');
+                            if (e.key === 'Tab') handleCellKeyDown(e, row._key, 'issues');
                           }}
                           onFocus={() => setActiveKey(row._key)}
                           placeholder="이슈 또는 특이사항"
@@ -1022,9 +1021,7 @@ export function BulkEditPage() {
                       <td className="px-3 py-2 align-top">
                         <div className="flex flex-col items-center gap-1">
                           <input
-                            ref={(el) =>
-                              cellRefs.current.set(`${row._key}:progress`, el)
-                            }
+                            ref={(el) => cellRefs.current.set(`${row._key}:progress`, el)}
                             type="number"
                             min={0}
                             max={100}
@@ -1037,13 +1034,10 @@ export function BulkEditPage() {
                                 Math.max(0, Math.min(100, Number(e.target.value))),
                               )
                             }
-                            onKeyDown={(e) =>
-                              handleCellKeyDown(e, row._key, 'progress')
-                            }
+                            onKeyDown={(e) => handleCellKeyDown(e, row._key, 'progress')}
                             onFocus={() => setActiveKey(row._key)}
                             className={`${cellCls} text-center`}
                           />
-                          {/* 진행률 미니 바 */}
                           <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
                             <div
                               className="h-full rounded-full transition-all"
@@ -1058,10 +1052,7 @@ export function BulkEditPage() {
                               }}
                             />
                           </div>
-                          <span
-                            className="text-[10px] font-bold"
-                            style={{ color: BRAND }}
-                          >
+                          <span className="text-[10px] font-bold" style={{ color: BRAND }}>
                             {row.progress}%
                           </span>
                         </div>
@@ -1070,16 +1061,10 @@ export function BulkEditPage() {
                       {/* 상태 */}
                       <td className="px-3 py-2 align-top">
                         <select
-                          ref={(el) =>
-                            cellRefs.current.set(`${row._key}:status`, el)
-                          }
+                          ref={(el) => cellRefs.current.set(`${row._key}:status`, el)}
                           value={row.status}
-                          onChange={(e) =>
-                            updateRow(row._key, 'status', e.target.value)
-                          }
-                          onKeyDown={(e) =>
-                            handleCellKeyDown(e, row._key, 'status')
-                          }
+                          onChange={(e) => updateRow(row._key, 'status', e.target.value)}
+                          onKeyDown={(e) => handleCellKeyDown(e, row._key, 'status')}
                           onFocus={() => setActiveKey(row._key)}
                           className={`${cellCls} cursor-pointer`}
                           style={
@@ -1094,11 +1079,46 @@ export function BulkEditPage() {
                         >
                           <option value="">상태 선택</option>
                           {STATUS_OPTIONS.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
+                            <option key={s} value={s}>{s}</option>
                           ))}
                         </select>
+                      </td>
+
+                      {/* 완료 예정일 - 필수 */}
+                      <td className={`px-3 py-2 align-top bg-red-50/30 ${missingDue ? 'ring-1 ring-inset ring-red-300' : ''}`}>
+                        <div className="flex flex-col gap-1">
+                          <input
+                            ref={(el) => cellRefs.current.set(`${row._key}:due_date`, el)}
+                            type="date"
+                            value={row.due_date}
+                            onChange={(e) => updateRow(row._key, 'due_date', e.target.value)}
+                            onKeyDown={(e) => handleCellKeyDown(e, row._key, 'due_date')}
+                            onFocus={() => setActiveKey(row._key)}
+                            className={`${cellCls} cursor-pointer ${
+                              isOverdue
+                                ? 'border-red-400 text-red-600 font-bold'
+                                : isDueToday
+                                  ? 'border-orange-400 text-orange-600 font-bold'
+                                  : ''
+                            }`}
+                          />
+                          {isOverdue && (
+                            <span className="flex items-center gap-0.5 text-[10px] font-bold text-red-500">
+                              <AlertTriangle size={9} />
+                              기한 초과
+                            </span>
+                          )}
+                          {isDueToday && (
+                            <span className="text-[10px] font-bold text-orange-500">
+                              오늘 마감
+                            </span>
+                          )}
+                          {missingDue && !isOverdue && !isDueToday && (
+                            <span className="text-[10px] text-red-400 font-medium">
+                              필수 입력값입니다
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* AI 차주 계획 제안 */}
@@ -1176,17 +1196,22 @@ export function BulkEditPage() {
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-3 rounded-sm border border-red-300 bg-red-50" />
-            필수값 누락 — 금주 진행 사항이 비어있는 행
+            필수값 누락 행
+          </span>
+          <span className="flex items-center gap-1.5">
+            <AlertTriangle size={11} className="text-red-500" />
+            빨간색: 완료 예정일 초과 (미완료)
+          </span>
+          <span className="flex items-center gap-1.5 text-orange-500 font-medium">
+            ● 주황색: 오늘 마감 업무
           </span>
           <span className="flex items-center gap-1.5">
             <Bot size={12} style={{ color: BRAND }} />
             AI: 금주 진행 사항 입력 후 클릭 → 차주 계획 자동 제안
           </span>
-          <span>Tab 키로 다음 칸 이동, 마지막 칸에서 Tab → 새 행 자동 추가</span>
           <span>
-            <span className="font-semibold text-slate-500">* 표시</span>는 필수 입력 항목 /
-            프로젝트명은 업무유형이 &apos;프로젝트&apos;일 때만 입력 가능 /
-            상태를 &apos;완료&apos;로 선택하면 진행률이 자동으로 100%가 됩니다
+            <span className="font-semibold text-slate-500">완료 예정일(*)은 필수 항목</span>입니다.
+            이전 주차 가져오기 시 예정일은 초기화되므로 반드시 갱신하세요.
           </span>
         </div>
       </main>

@@ -191,6 +191,7 @@ async def send_report_email(
         month=data.month,
         week_number=data.week_number,
         dept_name=data.dept_name,
+        delayed_items=data.delayed_items,
     )
     return SendReportEmailResponse(
         success=True,

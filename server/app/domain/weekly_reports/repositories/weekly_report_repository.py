@@ -56,6 +56,7 @@ class WeeklyReportRepository:
             priority=data.priority,
             issues=data.issues,
             status=data.status,
+            due_date=data.due_date,
         )
         self.db.add(report)
         await self.db.flush()

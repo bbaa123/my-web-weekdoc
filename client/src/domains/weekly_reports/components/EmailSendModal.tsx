@@ -12,6 +12,7 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { sendReportEmail } from '../api';
 import { toast } from '@/core/utils/toast';
+import type { DelayedItem } from '../types';
 
 interface EmailSendModalProps {
   isOpen: boolean;
@@ -23,6 +24,8 @@ interface EmailSendModalProps {
   month: string;
   weekNumber: string;
   deptName: string;
+  /** 지연/임박 항목 목록 (이메일 본문에 요약 테이블로 포함) */
+  delayedItems?: DelayedItem[];
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -36,6 +39,7 @@ export function EmailSendModal({
   month,
   weekNumber,
   deptName,
+  delayedItems,
 }: EmailSendModalProps) {
   const [tags, setTags] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -151,6 +155,7 @@ export function EmailSendModal({
         month,
         week_number: weekNumber,
         dept_name: deptName,
+        delayed_items: delayedItems,
       });
 
       toast.success(result.message || '성공적으로 전송되었습니다.');

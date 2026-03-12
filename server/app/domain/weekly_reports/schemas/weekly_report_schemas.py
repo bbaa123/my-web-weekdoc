@@ -2,7 +2,7 @@
 WeeklyReport 도메인 스키마
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from pydantic import BaseModel, field_validator
@@ -28,6 +28,7 @@ class WeeklyReportResponse(BaseModel):
     submitted_at: Optional[datetime] = None
     feedback: Optional[str] = None
     summary: Optional[str] = None
+    due_date: Optional[date] = None  # 완료 예정일
 
     model_config = {"from_attributes": True}
 
@@ -47,6 +48,7 @@ class WeeklyReportCreate(BaseModel):
     priority: Optional[str] = None
     issues: Optional[str] = None
     status: Optional[str] = None
+    due_date: Optional[date] = None  # 완료 예정일
 
 
 class WeeklyReportUpdate(BaseModel):
@@ -65,6 +67,7 @@ class WeeklyReportUpdate(BaseModel):
     issues: Optional[str] = None
     status: Optional[str] = None
     summary: Optional[str] = None
+    due_date: Optional[date] = None  # 완료 예정일
 
 
 class TeamWeeklyReportResponse(WeeklyReportResponse):
@@ -114,6 +117,19 @@ class DeptStatItem(BaseModel):
     dept: str
     completed: int
     total: int
+    delayed: int = 0  # 지연 건수 (완료 예정일 초과 & 미완료)
+
+
+class DelayedItem(BaseModel):
+    """지연/임박 업무 항목"""
+
+    weekly_reports_no: int
+    author_name: str
+    department: Optional[str] = None
+    project_name: Optional[str] = None
+    due_date: date
+    status: Optional[str] = None
+    days_overdue: int  # 양수: 지연일수, 음수: 남은일수
 
 
 class AICenterBriefingResponse(BaseModel):
@@ -123,6 +139,7 @@ class AICenterBriefingResponse(BaseModel):
     total_reports: int
     status_stats: dict[str, int]
     dept_stats: list[DeptStatItem]
+    delayed_items: list[DelayedItem] = []  # 지연 및 임박 업무 목록
 
 
 # ─── 이메일 발송 스키마 ───────────────────────────────────────────────────────
@@ -137,6 +154,7 @@ class SendReportEmailRequest(BaseModel):
     month: str
     week_number: str
     dept_name: str
+    delayed_items: list[DelayedItem] = []  # 지연 업무 목록 (이메일 요약 테이블용)
 
 
 class SendReportEmailResponse(BaseModel):

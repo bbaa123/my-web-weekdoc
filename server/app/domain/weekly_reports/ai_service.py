@@ -97,13 +97,19 @@ class WeeklyReportAIService:
 
         return _call_gemini_with_retry(self._model, prompt, max_tokens=200)
 
-    def center_briefing(self, reports_summary: str, total_count: int) -> str:
+    def center_briefing(
+        self,
+        reports_summary: str,
+        total_count: int,
+        delayed_items: list | None = None,
+    ) -> str:
         """
         여러 팀원의 주간보고 내용을 종합하여 센터장용 브리핑 생성.
 
         Args:
             reports_summary: 모든 팀원의 this_week/next_week/issues 합산 텍스트
             total_count: 보고서 총 건수
+            delayed_items: 지연/임박 업무 목록
 
         Returns:
             센터 종합 브리핑 텍스트
@@ -111,13 +117,33 @@ class WeeklyReportAIService:
         if not reports_summary or not reports_summary.strip():
             raise HTTPException(status_code=400, detail="브리핑을 생성할 보고서 내용이 없습니다.")
 
+        # 지연/임박 업무 요약 텍스트 생성
+        delayed_summary = ""
+        if delayed_items:
+            delay_lines = []
+            for item in delayed_items:
+                if item.days_overdue > 0:
+                    delay_lines.append(
+                        f"  - {item.author_name} ({item.department or '부서미지정'}): "
+                        f"{item.project_name or '업무'} / 예정일 {item.due_date} / {item.days_overdue}일 지연"
+                    )
+                else:
+                    delay_lines.append(
+                        f"  - {item.author_name} ({item.department or '부서미지정'}): "
+                        f"{item.project_name or '업무'} / 오늘({item.due_date}) 마감"
+                    )
+            delayed_summary = "\n[지연 및 오늘 마감 업무 목록]\n" + "\n".join(delay_lines) + "\n\n"
+
         prompt = (
             f"당신은 기업 센터장을 위한 분석 비서입니다.\n"
             f"아래는 총 {total_count}명의 팀원 주간보고 내용입니다.\n\n"
+            f"{delayed_summary}"
             "[팀원 주간보고 전체 내용]\n"
             f"{reports_summary}\n\n"
             "위 내용을 분석하여 센터장을 위한 주간 종합 브리핑을 작성해주세요.\n"
-            "다음 세 가지 섹션을 반드시 정확히 아래 형식으로 작성해주세요:\n\n"
+            "다음 네 가지 섹션을 반드시 정확히 아래 형식으로 작성해주세요:\n\n"
+            "##일정 지연 및 임박 긴급 업무\n"
+            "• (지연/임박 업무 항목 - 담당자, 업무명, 지연 현황)\n\n"
             "##이번 주 3대 핵심 성과\n"
             "• (성과 1)\n"
             "• (성과 2)\n"
@@ -126,13 +152,15 @@ class WeeklyReportAIService:
             "• (리스크 항목)\n\n"
             "##조직 관리 제언\n"
             "• (제언 항목)\n\n"
+            "첫 번째 섹션 '일정 지연 및 임박 긴급 업무'는 완료 예정일이 지났거나 오늘인 업무를 중심으로 "
+            "작성하고, 지연 업무가 없으면 '지연 업무 없음'으로 작성해주세요.\n"
             "각 섹션은 구체적이고 실행 가능한 내용으로 작성해주세요.\n"
             "리스크가 없을 경우 '특이 리스크 없음'으로 작성해주세요.\n"
             "불릿 포인트(•)는 반드시 각 항목 앞에 사용해주세요.\n"
-            "전체 분량은 600자 이내로 간결하게 작성해주세요."
+            "전체 분량은 800자 이내로 간결하게 작성해주세요."
         )
 
-        return _call_gemini_with_retry(self._model, prompt, max_tokens=1500)
+        return _call_gemini_with_retry(self._model, prompt, max_tokens=1800)
 
     def guide(self, this_week: str) -> str:
         """

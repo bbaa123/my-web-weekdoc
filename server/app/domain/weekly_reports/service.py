@@ -2,6 +2,7 @@
 WeeklyReport Service - 주간보고 비즈니스 로직
 """
 
+from datetime import date
 from typing import Optional
 
 from fastapi import HTTPException
@@ -17,12 +18,16 @@ from server.app.domain.weekly_reports.schemas.weekly_report_schemas import (
     AICenterBriefingResponse,
     AISummarizeResponse,
     AIGuideResponse,
+    DelayedItem,
     DeptStatItem,
     TeamWeeklyReportResponse,
     WeeklyReportCreate,
     WeeklyReportResponse,
     WeeklyReportUpdate,
 )
+
+# 직급별 접근 권한: 임원/실장/센터장은 전체 접근 (최상위 관리자급)
+SENIOR_POSITIONS = {"임원", "실장", "센터장"}
 
 
 class WeeklyReportService:
@@ -79,8 +84,9 @@ class WeeklyReportService:
     async def _get_accessible_dept_codes(self, login_id: str, is_admin: bool) -> list[str] | None:
         """
         사용자가 접근 가능한 부서 코드 목록 반환.
-        - admin 또는 최상위 부서장: None (전체 접근)
-        - 일반 사용자: 본인 부서 + 직속 하위 부서 코드 목록
+        - admin 또는 임원/실장/센터장 직급: None (전체 접근)
+        - 최상위 부서장 (parent_dept_code 없음): None (전체 접근)
+        - 팀장/매니저: 본인 부서 + 직속 하위 부서 코드 목록
         """
         if is_admin:
             return None
@@ -88,6 +94,10 @@ class WeeklyReportService:
         user_repo = UserRepository(self.db)
         user = await user_repo.get_by_id(login_id)
         if not user or not user.department:
+            return None
+
+        # 직급 기반 접근 권한: 임원/실장/센터장은 전체 접근
+        if user.position and user.position in SENIOR_POSITIONS:
             return None
 
         dept_repo = DepartmentRepository(self.db)
@@ -98,6 +108,42 @@ class WeeklyReportService:
 
         children = await dept_repo.list_by_parent_code(user.department)
         return [user.department] + [c.dept_code for c in children]
+
+    def _get_delayed_items(
+        self,
+        filtered: list,
+        today: date,
+    ) -> list[DelayedItem]:
+        """
+        지연 및 임박 업무 목록 추출.
+        - 완료 예정일이 지났으나 완료되지 않은 항목 (지연)
+        - 완료 예정일이 오늘인 항목 (오늘 마감)
+        """
+        COMPLETED_STATUSES = {"완료", "COMPLETED"}
+        delayed = []
+        for report, author_name, dept in filtered:
+            if not report.due_date:
+                continue
+            status = report.status or ""
+            if status in COMPLETED_STATUSES:
+                continue
+            days_overdue = (today - report.due_date).days
+            # 오늘 마감(0일) 또는 지연(양수) 포함
+            if days_overdue >= 0:
+                delayed.append(
+                    DelayedItem(
+                        weekly_reports_no=report.weekly_reports_no,
+                        author_name=author_name or report.id,
+                        department=dept,
+                        project_name=report.project_name,
+                        due_date=report.due_date,
+                        status=report.status,
+                        days_overdue=days_overdue,
+                    )
+                )
+        # 지연일수 내림차순 정렬
+        delayed.sort(key=lambda x: x.days_overdue, reverse=True)
+        return delayed
 
     async def ai_summarize(self, no: int, current_login: Login) -> AISummarizeResponse:
         """
@@ -187,6 +233,8 @@ class WeeklyReportService:
                 parts.append(f"[차주 계획] {report.next_week}")
             if report.issues:
                 parts.append(f"[이슈] {report.issues}")
+            if report.due_date:
+                parts.append(f"[완료 예정일] {report.due_date.strftime('%Y-%m-%d')}")
             if parts:
                 combined_parts.append(
                     f"● {author_name or report.id} ({dept or '부서미지정'}):\n" + "\n".join(parts)
@@ -195,6 +243,7 @@ class WeeklyReportService:
         reports_summary = "\n\n".join(combined_parts)
 
         # 상태 통계
+        today = date.today()
         COMPLETED_STATUSES = {"완료", "COMPLETED"}
         status_stats: dict[str, int] = {}
         dept_stats_map: dict[str, dict[str, int]] = {}
@@ -204,22 +253,33 @@ class WeeklyReportService:
 
             dept_key = dept or "미지정"
             if dept_key not in dept_stats_map:
-                dept_stats_map[dept_key] = {"total": 0, "completed": 0}
+                dept_stats_map[dept_key] = {"total": 0, "completed": 0, "delayed": 0}
             dept_stats_map[dept_key]["total"] += 1
             if status in COMPLETED_STATUSES:
                 dept_stats_map[dept_key]["completed"] += 1
+            elif report.due_date and report.due_date < today:
+                dept_stats_map[dept_key]["delayed"] += 1
+
+        # 지연/임박 업무 추출
+        delayed_items = self._get_delayed_items(filtered, today)
 
         ai_svc = WeeklyReportAIService()
-        briefing = ai_svc.center_briefing(reports_summary, len(filtered))
+        briefing = ai_svc.center_briefing(reports_summary, len(filtered), delayed_items)
 
         return AICenterBriefingResponse(
             briefing=briefing,
             total_reports=len(filtered),
             status_stats=status_stats,
             dept_stats=[
-                DeptStatItem(dept=k, completed=v["completed"], total=v["total"])
+                DeptStatItem(
+                    dept=k,
+                    completed=v["completed"],
+                    total=v["total"],
+                    delayed=v["delayed"],
+                )
                 for k, v in dept_stats_map.items()
             ],
+            delayed_items=delayed_items,
         )
 
     async def list_team_reports(
@@ -229,8 +289,8 @@ class WeeklyReportService:
         팀 주간보고 목록 조회 (모든 사용자 부서 선택 가능, 계층 권한 적용).
         - department 지정: 해당 부서 보고서 조회 (접근 가능 범위 내)
         - department 미지정:
-          - admin / 최상위 부서장: 전체 보고서
-          - 일반 사용자: 접근 가능한 부서의 보고서 전체
+          - admin / 최상위 부서장 / 임원·실장·센터장: 전체 보고서
+          - 팀장/매니저: 접근 가능한 부서의 보고서 전체
         """
         accessible = await self._get_accessible_dept_codes(current_login.id, current_login.admin_yn)
 

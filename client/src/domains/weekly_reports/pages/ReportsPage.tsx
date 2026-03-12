@@ -1,26 +1,27 @@
 /**
  * ReportsPage - AI 통합 요약 중심의 센터 주간 보고서 화면
  *
- * - 상단: AI 센터 종합 브리핑 (3대 성과 / 리스크 / 조직 관리 제언)
- * - 중단: 업무 상태 분포 + 부서별 완료율 차트 (recharts)
+ * - 상단: AI 센터 종합 브리핑 (지연업무 / 3대 성과 / 리스크 / 조직 관리 제언)
+ * - 중단: 업무 상태 분포 + 부서별 완료율 차트 (recharts) + 지연 건수
  * - 하단: 개별 보고서 아코디언 (접이식)
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  AlertTriangle,
   Bot,
   CalendarDays,
   LogOut,
   ChevronDown,
   ChevronUp,
-  AlertTriangle,
   Trophy,
   Lightbulb,
   Loader2,
   Mail,
   Users,
   BarChart3,
+  Clock,
 } from 'lucide-react';
 import {
   PieChart,
@@ -43,7 +44,8 @@ import { useNoticeStore } from '@/domains/notice/store';
 import { fetchAccessibleDepartments } from '@/domains/departments/api';
 import type { Department } from '@/domains/departments/types';
 import { fetchTeamReports, aiCenterBriefing } from '../api';
-import type { AICenterBriefingResponse, TeamWeeklyReport } from '../types';
+import type { AICenterBriefingResponse, DelayedItem, TeamWeeklyReport } from '../types';
+import { getDueDateStatus } from '../types';
 import { EmailSendModal } from '../components/EmailSendModal';
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
@@ -89,6 +91,12 @@ interface BriefingSection {
 function parseBriefing(briefing: string): BriefingSection[] {
   const sectionDefs = [
     {
+      key: '일정 지연 및 임박 긴급 업무',
+      icon: <AlertTriangle size={18} />,
+      color: 'text-red-700',
+      bgColor: 'bg-red-50 border-red-200',
+    },
+    {
       key: '이번 주 3대 핵심 성과',
       icon: <Trophy size={18} />,
       color: 'text-orange-600',
@@ -111,9 +119,9 @@ function parseBriefing(briefing: string): BriefingSection[] {
   const result: BriefingSection[] = [];
 
   for (const def of sectionDefs) {
-    // ##제목 또는 **제목** 형식 모두 처리
+    const allKeys = sectionDefs.map((d) => d.key).join('|');
     const headerPattern = new RegExp(
-      `(?:##|\\*{1,2})\\s*${def.key}\\s*(?:\\*{1,2})?\\s*\\n([\\s\\S]*?)(?=(?:##|\\*{1,2})\\s*(?:이번 주|즉시 확인|조직 관리)|$)`,
+      `(?:##|\\*{1,2})\\s*${def.key}\\s*(?:\\*{1,2})?\\s*\\n([\\s\\S]*?)(?=(?:##|\\*{1,2})\\s*(?:${allKeys})|$)`,
       'i'
     );
     const match = briefing.match(headerPattern);
@@ -140,12 +148,73 @@ function parseBriefing(briefing: string): BriefingSection[] {
       .split('\n')
       .map((l) => l.replace(/^[##•\-\*]\s*/, '').trim())
       .filter((l) => l.length > 0);
-    result[0].items = lines.slice(0, 5);
-    result[1].items = lines.slice(5, 8);
-    result[2].items = lines.slice(8, 11);
+    result[0].items = lines.slice(0, 3);
+    result[1].items = lines.slice(3, 6);
+    result[2].items = lines.slice(6, 9);
+    result[3].items = lines.slice(9, 12);
   }
 
   return result;
+}
+
+// ─── 지연 업무 테이블 컴포넌트 ────────────────────────────────────────────────
+
+function DelayedItemsTable({ items }: { items: DelayedItem[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <AlertTriangle size={18} className="text-red-600" />
+        <h3 className="text-sm font-black text-red-700">
+          일정 지연 및 임박 업무 ({items.length}건)
+        </h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-red-100 text-red-800">
+              <th className="text-left px-3 py-2 font-bold rounded-tl-lg">담당자</th>
+              <th className="text-left px-3 py-2 font-bold">부서</th>
+              <th className="text-left px-3 py-2 font-bold">업무/프로젝트</th>
+              <th className="text-left px-3 py-2 font-bold">완료 예정일</th>
+              <th className="text-left px-3 py-2 font-bold rounded-tr-lg">상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr
+                key={item.weekly_reports_no}
+                className="border-t border-red-200 bg-white hover:bg-red-50/50"
+              >
+                <td className="px-3 py-2 font-semibold text-slate-800">{item.author_name}</td>
+                <td className="px-3 py-2 text-slate-600">{item.department || '-'}</td>
+                <td className="px-3 py-2 text-slate-600">{item.project_name || '-'}</td>
+                <td className="px-3 py-2">
+                  {item.days_overdue > 0 ? (
+                    <span className="flex items-center gap-1 text-red-600 font-bold">
+                      <AlertTriangle size={10} />
+                      {item.due_date} ({item.days_overdue}일 지연)
+                    </span>
+                  ) : (
+                    <span className="text-orange-600 font-bold">{item.due_date} (오늘 마감)</span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  <span className={`font-semibold px-2 py-0.5 rounded-full ${
+                    item.status === '진행' ? 'bg-blue-100 text-blue-700' :
+                    item.status === '중단' ? 'bg-red-100 text-red-700' :
+                    'bg-slate-100 text-slate-600'
+                  }`}>
+                    {item.status || '미지정'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 // ─── 개별 보고서 아코디언 아이템 ──────────────────────────────────────────────
@@ -160,9 +229,14 @@ function AccordionItem({ report, index }: AccordionItemProps) {
 
   const statusColor = STATUS_COLORS[report.status || '미지정'] || '#94a3b8';
   const statusLabel = STATUS_DISPLAY[report.status || ''] || report.status || '미지정';
+  const dueDateStatus = getDueDateStatus(report.due_date, report.status);
 
   return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+    <div className={`border rounded-xl overflow-hidden bg-white ${
+      dueDateStatus === 'overdue' ? 'border-red-300' :
+      dueDateStatus === 'today' ? 'border-orange-300' :
+      'border-slate-200'
+    }`}>
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors text-left"
@@ -173,7 +247,12 @@ function AccordionItem({ report, index }: AccordionItemProps) {
             className="w-2 h-2 rounded-full shrink-0"
             style={{ backgroundColor: statusColor }}
           />
-          <span className="text-sm font-semibold text-slate-800 truncate">
+          <span className={`text-sm font-semibold truncate ${
+            dueDateStatus === 'overdue' ? 'text-red-700' :
+            dueDateStatus === 'today' ? 'text-orange-700' :
+            'text-slate-800'
+          }`}>
+            {dueDateStatus === 'overdue' && <AlertTriangle size={12} className="inline mr-1" />}
             {report.author_name || report.id}
           </span>
           <span className="text-xs text-slate-400 shrink-0">{report.department || '부서미지정'}</span>
@@ -184,6 +263,17 @@ function AccordionItem({ report, index }: AccordionItemProps) {
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {/* 완료 예정일 배지 */}
+          {report.due_date && (
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+              dueDateStatus === 'overdue' ? 'bg-red-100 text-red-600' :
+              dueDateStatus === 'today' ? 'bg-orange-100 text-orange-600' :
+              'bg-slate-100 text-slate-500'
+            }`}>
+              {dueDateStatus === 'overdue' && '⚠️ '}
+              {report.due_date}
+            </span>
+          )}
           <span
             className="text-xs font-bold px-2 py-0.5 rounded-full"
             style={{ backgroundColor: `${statusColor}20`, color: statusColor }}
@@ -278,7 +368,6 @@ export function ReportsPage() {
     fetchAccessibleDepartments()
       .then((depts) => {
         setAccessibleDepts(depts);
-        // 초기 선택: 목록의 첫 번째 부서(최상위)
         if (depts.length > 0 && !filterDept) {
           setFilterDept(depts[0].dept_code);
         }
@@ -336,6 +425,31 @@ export function ReportsPage() {
     navigate('/login');
   };
 
+  // ── 지연 항목 (브리핑 없이 팀 보고서에서 직접 계산) ──────────────────────
+  const localDelayedItems = useMemo(() => {
+    return teamReports
+      .filter((r) => {
+        const ds = getDueDateStatus(r.due_date, r.status);
+        return ds === 'overdue' || ds === 'today';
+      })
+      .map((r) => {
+        const ds = getDueDateStatus(r.due_date, r.status);
+        const daysOverdue = ds === 'overdue'
+          ? Math.floor((new Date().setHours(0,0,0,0) - new Date(r.due_date!).setHours(0,0,0,0)) / 86400000)
+          : 0;
+        return {
+          weekly_reports_no: r.weekly_reports_no,
+          author_name: r.author_name || r.id,
+          department: r.department,
+          project_name: r.project_name,
+          due_date: r.due_date!,
+          status: r.status,
+          days_overdue: daysOverdue,
+        } as DelayedItem;
+      })
+      .sort((a, b) => b.days_overdue - a.days_overdue);
+  }, [teamReports]);
+
   // ── 차트 데이터 ────────────────────────────────────────────────────────────
   const pieData = useMemo(() => {
     if (!briefingData) return [];
@@ -352,6 +466,7 @@ export function ReportsPage() {
       dept: d.dept.length > 8 ? d.dept.slice(0, 8) + '…' : d.dept,
       완료: d.completed,
       미완료: d.total - d.completed,
+      지연: d.delayed,
       완료율: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
     }));
   }, [briefingData]);
@@ -363,6 +478,9 @@ export function ReportsPage() {
 
   const selectedDeptName =
     accessibleDepts.find((d) => d.dept_code === filterDept)?.dept_name || filterDept;
+
+  // 이메일에 전달할 지연 항목
+  const emailDelayedItems = briefingData?.delayed_items ?? localDelayedItems;
 
   // ── 렌더링 ─────────────────────────────────────────────────────────────────
   if (!user) return null;
@@ -468,18 +586,35 @@ export function ReportsPage() {
               팀원들의 주간보고를 AI가 종합 분석하여 브리핑을 생성합니다
             </p>
           </div>
-          <div className="flex items-center gap-2 text-sm text-slate-500">
-            <Users size={16} />
-            <span>
-              {loadingReports ? '로딩 중...' : `${teamReports.length}명의 보고서`}
-            </span>
+          <div className="flex items-center gap-3">
+            {localDelayedItems.length > 0 && (
+              <span className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-200 rounded-xl text-sm font-bold text-red-600">
+                <AlertTriangle size={14} />
+                지연 {localDelayedItems.filter(d => d.days_overdue > 0).length}건
+                {localDelayedItems.filter(d => d.days_overdue === 0).length > 0 && (
+                  <span className="ml-1 text-orange-500">
+                    / 오늘마감 {localDelayedItems.filter(d => d.days_overdue === 0).length}건
+                  </span>
+                )}
+              </span>
+            )}
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <Users size={16} />
+              <span>
+                {loadingReports ? '로딩 중...' : `${teamReports.length}명의 보고서`}
+              </span>
+            </div>
           </div>
         </div>
+
+        {/* ── 지연 업무 긴급 배너 ────────────────────────────────────────── */}
+        {localDelayedItems.length > 0 && (
+          <DelayedItemsTable items={localDelayedItems} />
+        )}
 
         {/* ── 필터 바 ───────────────────────────────────────────────────── */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
           <div className="flex flex-wrap items-end gap-3">
-            {/* 부서 선택 */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-slate-500">부서</label>
               <select
@@ -499,7 +634,6 @@ export function ReportsPage() {
               </select>
             </div>
 
-            {/* 연도 */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-slate-500">연도</label>
               <select
@@ -513,7 +647,6 @@ export function ReportsPage() {
               </select>
             </div>
 
-            {/* 월 */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-slate-500">월</label>
               <select
@@ -527,7 +660,6 @@ export function ReportsPage() {
               </select>
             </div>
 
-            {/* 주 */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-slate-500">주</label>
               <select
@@ -541,7 +673,6 @@ export function ReportsPage() {
               </select>
             </div>
 
-            {/* AI 브리핑 생성 버튼 */}
             <button
               onClick={handleGenerateBriefing}
               disabled={loadingBriefing || !filterDept}
@@ -625,6 +756,11 @@ export function ReportsPage() {
                       {briefingData.total_reports}명
                     </span>{' '}
                     분석 완료
+                    {briefingData.delayed_items.length > 0 && (
+                      <span className="ml-2 text-red-500 font-bold">
+                        · 지연 {briefingData.delayed_items.filter(d => d.days_overdue > 0).length}건
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -646,102 +782,115 @@ export function ReportsPage() {
               </div>
             </div>
 
-            {/* 섹션 카드 3개 + 차트 (PDF 캡처 영역) */}
+            {/* 지연 업무 목록 (브리핑 최상단) */}
+            {briefingData.delayed_items.length > 0 && (
+              <DelayedItemsTable items={briefingData.delayed_items} />
+            )}
+
+            {/* 섹션 카드 4개 + 차트 (PDF 캡처 영역) */}
             <div ref={briefingCaptureRef} className="space-y-4 p-2">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {briefingSections.map((section) => (
-                <div
-                  key={section.title}
-                  className={`rounded-2xl border p-5 ${section.bgColor}`}
-                >
-                  <div className={`flex items-center gap-2 mb-3 ${section.color}`}>
-                    {section.icon}
-                    <h3 className="text-sm font-black">{section.title}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {briefingSections.map((section) => (
+                  <div
+                    key={section.title}
+                    className={`rounded-2xl border p-5 ${section.bgColor}`}
+                  >
+                    <div className={`flex items-center gap-2 mb-3 ${section.color}`}>
+                      {section.icon}
+                      <h3 className="text-sm font-black">{section.title}</h3>
+                    </div>
+                    <ul className="space-y-2">
+                      {section.items.map((item, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <span
+                            className="mt-1 shrink-0 text-base leading-none"
+                            style={{ color: BRAND }}
+                          >
+                            •
+                          </span>
+                          <span className="text-sm text-slate-700 leading-relaxed">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul className="space-y-2">
-                    {section.items.map((item, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span
-                          className="mt-1 shrink-0 text-base leading-none"
-                          style={{ color: BRAND }}
+                ))}
+              </div>
+
+              {/* ── 통계 차트 ─────────────────────────────────────────────── */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 업무 상태 분포 파이 차트 */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <BarChart3 size={16} className="text-slate-400" />
+                    <h3 className="text-sm font-bold text-slate-700">업무 상태 분포</h3>
+                  </div>
+                  {pieData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={180}>
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={45}
+                          outerRadius={75}
+                          paddingAngle={3}
+                          dataKey="value"
                         >
-                          •
+                          {pieData.map((entry, index) => (
+                            <Cell key={index} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value) => [`${value}건`]} />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-sm text-slate-400 text-center py-8">데이터 없음</p>
+                  )}
+                </div>
+
+                {/* 부서별 완료율 + 지연 건수 바 차트 */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 size={16} className="text-slate-400" />
+                      <h3 className="text-sm font-bold text-slate-700">부서별 완료율 / 지연 건수</h3>
+                    </div>
+                    {/* 지연 건수 요약 */}
+                    <div className="flex items-center gap-2">
+                      {briefingData.dept_stats.filter(d => d.delayed > 0).map(d => (
+                        <span key={d.dept} className="flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                          <Clock size={10} />
+                          {d.dept.length > 5 ? d.dept.slice(0, 5) + '…' : d.dept}: {d.delayed}건
                         </span>
-                        <span className="text-sm text-slate-700 leading-relaxed">{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-
-            {/* ── 통계 차트 ─────────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* 업무 상태 분포 파이 차트 */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-                <div className="flex items-center gap-2 mb-4">
-                  <BarChart3 size={16} className="text-slate-400" />
-                  <h3 className="text-sm font-bold text-slate-700">업무 상태 분포</h3>
-                </div>
-                {pieData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={180}>
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={75}
-                        paddingAngle={3}
-                        dataKey="value"
+                      ))}
+                    </div>
+                  </div>
+                  {barData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={180}>
+                      <BarChart
+                        data={barData}
+                        margin={{ top: 0, right: 0, left: -20, bottom: 0 }}
                       >
-                        {pieData.map((entry, index) => (
-                          <Cell key={index} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value) => [`${value}건`]}
-                      />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-sm text-slate-400 text-center py-8">데이터 없음</p>
-                )}
-              </div>
-
-              {/* 부서별 완료율 바 차트 */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-                <div className="flex items-center gap-2 mb-4">
-                  <BarChart3 size={16} className="text-slate-400" />
-                  <h3 className="text-sm font-bold text-slate-700">부서별 완료율</h3>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis
+                          dataKey="dept"
+                          tick={{ fontSize: 11 }}
+                          interval={0}
+                        />
+                        <YAxis tick={{ fontSize: 11 }} />
+                        <Tooltip formatter={(value) => [`${value}건`]} />
+                        <Legend />
+                        <Bar dataKey="완료" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="미완료" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="지연" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-sm text-slate-400 text-center py-8">데이터 없음</p>
+                  )}
                 </div>
-                {barData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={180}>
-                    <BarChart
-                      data={barData}
-                      margin={{ top: 0, right: 0, left: -20, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis
-                        dataKey="dept"
-                        tick={{ fontSize: 11 }}
-                        interval={0}
-                      />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip
-                        formatter={(value) => [`${value}건`]}
-                      />
-                      <Legend />
-                      <Bar dataKey="완료" fill="#10b981" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="미완료" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-sm text-slate-400 text-center py-8">데이터 없음</p>
-                )}
               </div>
-            </div>
             </div> {/* briefingCaptureRef 닫기 */}
           </div>
         )}
@@ -760,6 +909,12 @@ export function ReportsPage() {
               <span className="text-xs font-semibold text-slate-400">
                 ({teamReports.length}건)
               </span>
+              {localDelayedItems.length > 0 && (
+                <span className="flex items-center gap-1 text-xs font-bold text-red-500">
+                  <AlertTriangle size={11} />
+                  지연 {localDelayedItems.length}건
+                </span>
+              )}
             </div>
             {showDetails ? (
               <ChevronUp size={18} className="text-slate-400" />
@@ -822,6 +977,7 @@ export function ReportsPage() {
         month={filterMonth}
         weekNumber={filterWeek}
         deptName={selectedDeptName}
+        delayedItems={emailDelayedItems}
       />
     </div>
   );

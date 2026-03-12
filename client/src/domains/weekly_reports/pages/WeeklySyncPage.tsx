@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  AlertTriangle,
   Bot,
   CalendarDays,
   LogOut,
@@ -33,6 +34,7 @@ import {
   aiSummarize,
 } from '../api';
 import type { TeamWeeklyReport, WeeklyReport, WeeklyReportCreate } from '../types';
+import { getDueDateStatus } from '../types';
 import { WeeklyReportComments } from '../components/WeeklyReportComments';
 
 // ─── 상수 ───────────────────────────────────────────────────────────────────
@@ -81,6 +83,7 @@ interface FormRow {
   priority: string;
   progress: number;
   issues: string;
+  due_date: string; // 완료 예정일
 }
 
 // 월요일 시작 기준으로 이번 달 몇 주차인지 계산
@@ -119,6 +122,7 @@ function makeEmptyRow(): FormRow {
     priority: '',
     progress: 0,
     issues: '',
+    due_date: '',
   };
 }
 
@@ -230,6 +234,7 @@ function NewReportModal({
           priority: null,
           issues: form.issues || null,
           status: form.status || null,
+          due_date: form.due_date || null,
         },
       ];
       await createWeeklyReports(payload);
@@ -496,6 +501,23 @@ function NewReportModal({
                 />
               </div>
 
+              {/* 완료 예정일 */}
+              <div>
+                <label className={labelCls}>
+                  완료 예정일
+                  <span className="ml-1 text-red-400 text-xs">*필수</span>
+                </label>
+                <input
+                  type="date"
+                  value={form.due_date}
+                  onChange={(e) => update('due_date', e.target.value)}
+                  className={`${fieldCls} ${!form.due_date ? 'border-red-300 ring-1 ring-red-200' : ''}`}
+                />
+                {!form.due_date && (
+                  <p className="mt-1 text-[10px] text-red-400 font-medium">완료 예정일을 입력해주세요</p>
+                )}
+              </div>
+
             </div>
           </div>
         </div>
@@ -698,6 +720,27 @@ function EditReportModal({
                   {teamRow.department}
                 </span>
               )}
+              {/* 완료 예정일 */}
+              {(() => {
+                const ds = getDueDateStatus(report.due_date, report.status);
+                if (!report.due_date) return null;
+                if (ds === 'overdue') return (
+                  <span className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-600 border border-red-200">
+                    <AlertTriangle size={11} />
+                    완료 예정일 {report.due_date} (지연)
+                  </span>
+                );
+                if (ds === 'today') return (
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-orange-100 text-orange-600 border border-orange-200">
+                    완료 예정일 {report.due_date} (오늘 마감)
+                  </span>
+                );
+                return (
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+                    완료 예정일 {report.due_date}
+                  </span>
+                );
+              })()}
             </div>
 
             {/* 이번주 업무 카드 */}
@@ -939,7 +982,9 @@ export function WeeklySyncPage() {
     const avgProgress =
       total > 0 ? Math.round(filtered.reduce((sum, r) => sum + (r.progress ?? 0), 0) / total) : 0;
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { total, completed, delayed, withIssues, avgProgress, completionRate };
+    const overdueCount = filtered.filter((r) => getDueDateStatus(r.due_date, r.status) === 'overdue').length;
+    const dueTodayCount = filtered.filter((r) => getDueDateStatus(r.due_date, r.status) === 'today').length;
+    return { total, completed, delayed, withIssues, avgProgress, completionRate, overdueCount, dueTodayCount };
   }, [filtered]);
 
   // 이슈 요약 텍스트
@@ -1275,6 +1320,23 @@ export function WeeklySyncPage() {
           </div>
         </div>
 
+        {/* ── 지연/오늘 마감 알림 배너 ────────────────────────── */}
+        {(summary.overdueCount > 0 || summary.dueTodayCount > 0) && (
+          <div className="flex flex-wrap gap-3">
+            {summary.overdueCount > 0 && (
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-semibold">
+                <AlertTriangle size={15} className="shrink-0" />
+                완료 예정일 초과 업무 <strong>{summary.overdueCount}건</strong> — 즉시 확인이 필요합니다
+              </div>
+            )}
+            {summary.dueTodayCount > 0 && (
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-orange-50 border border-orange-200 rounded-xl text-sm text-orange-700 font-semibold">
+                오늘 완료 예정 업무 <strong>{summary.dueTodayCount}건</strong>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── 필터 영역 ─────────────────────────────────────── */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
           <div className="flex flex-wrap gap-4 items-end">
@@ -1437,6 +1499,9 @@ export function WeeklySyncPage() {
                       <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
                         상태
                       </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-red-600 uppercase tracking-wide whitespace-nowrap bg-red-50/30">
+                        완료 예정일
+                      </th>
                       <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
                         진도율
                       </th>
@@ -1502,6 +1567,24 @@ export function WeeklySyncPage() {
                         {/* Status */}
                         <td className="px-4 py-4 whitespace-nowrap">
                           <StatusBadge status={r.status} />
+                        </td>
+
+                        {/* Due Date */}
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {(() => {
+                            const ds = getDueDateStatus(r.due_date, r.status);
+                            if (!r.due_date) return <span className="text-xs text-slate-300">-</span>;
+                            if (ds === 'overdue') return (
+                              <span className="flex items-center gap-1 text-xs font-bold text-red-600">
+                                <AlertTriangle size={11} />
+                                {r.due_date}
+                              </span>
+                            );
+                            if (ds === 'today') return (
+                              <span className="text-xs font-bold text-orange-500">{r.due_date}</span>
+                            );
+                            return <span className="text-xs text-slate-500">{r.due_date}</span>;
+                          })()}
                         </td>
 
                         {/* Progress */}
