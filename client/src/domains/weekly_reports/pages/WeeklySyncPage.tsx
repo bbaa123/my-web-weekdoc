@@ -1165,7 +1165,12 @@ export function WeeklySyncPage() {
             <span className="text-slate-900 border-b-2 pb-0.5" style={{ borderColor: BRAND }}>
               Dashboard
             </span>
-            <span className="hover:text-slate-700 cursor-pointer">Reports</span>
+            <button
+              onClick={() => navigate('/reports')}
+              className="hover:text-slate-700 cursor-pointer"
+            >
+              Reports
+            </button>
             <button
               onClick={() => navigate('/org-chart')}
               className="hover:text-slate-700 cursor-pointer"

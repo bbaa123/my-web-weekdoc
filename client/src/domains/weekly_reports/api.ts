@@ -1,5 +1,7 @@
 import { apiClient } from '@/core/api/client';
 import type {
+  AICenterBriefingRequest,
+  AICenterBriefingResponse,
   AISummarizeResponse,
   AIGuideResponse,
   TeamWeeklyReport,
@@ -53,6 +55,16 @@ export async function aiSummarize(no: number): Promise<AISummarizeResponse> {
 export async function aiGuide(no: number): Promise<AIGuideResponse> {
   const response = await apiClient.post<AIGuideResponse>(
     `/api/v1/weekly-reports/${no}/ai/guide`
+  );
+  return response.data;
+}
+
+export async function aiCenterBriefing(
+  data: AICenterBriefingRequest
+): Promise<AICenterBriefingResponse> {
+  const response = await apiClient.post<AICenterBriefingResponse>(
+    '/api/v1/weekly-reports/ai/center-briefing',
+    data
   );
   return response.data;
 }

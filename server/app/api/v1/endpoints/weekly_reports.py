@@ -11,6 +11,8 @@ from server.app.core.dependencies import get_current_login_user, get_database_se
 from server.app.domain.login.models.login import Login
 from server.app.domain.weekly_reports.comment_service import WeeklyReportCommentService
 from server.app.domain.weekly_reports.schemas.weekly_report_schemas import (
+    AICenterBriefingRequest,
+    AICenterBriefingResponse,
     AISummarizeResponse,
     AIGuideResponse,
     AIGuideRequest,
@@ -127,6 +129,26 @@ async def ai_guide(
 ) -> AIGuideResponse:
     service = WeeklyReportService(db)
     return await service.ai_guide(no, current_login)
+
+
+@router.post(
+    "/ai/center-briefing",
+    response_model=AICenterBriefingResponse,
+    summary="AI 센터 종합 브리핑: 조회 조건에 해당하는 전체 보고서를 분석하여 센터장용 브리핑 생성",
+)
+async def ai_center_briefing(
+    data: AICenterBriefingRequest,
+    current_login: Login = Depends(get_current_login_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> AICenterBriefingResponse:
+    service = WeeklyReportService(db)
+    return await service.ai_center_briefing(
+        current_login,
+        data.year,
+        data.month,
+        data.week_number,
+        data.department,
+    )
 
 
 @router.post(
