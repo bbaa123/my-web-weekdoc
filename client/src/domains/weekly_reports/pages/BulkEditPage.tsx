@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  Bot,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
@@ -17,7 +16,6 @@ import { getCurrentWeekInfo } from '@/core/utils/date';
 import {
   createWeeklyReports,
   fetchWeeklyReports,
-  aiGuideText,
   updateWeeklyReport,
 } from '../api';
 import type { WeeklyReport, WeeklyReportCreate } from '../types';
@@ -234,7 +232,6 @@ export function BulkEditPage() {
   const [saving, setSaving] = useState(false);
   const [loadingCurrentWeek, setLoadingCurrentWeek] = useState(false);
   const [loadingLastWeek, setLoadingLastWeek] = useState(false);
-  const [aiLoadingKeys, setAiLoadingKeys] = useState<Set<string>>(new Set());
 
   // 셀 ref 맵: rowKey + ':' + colName → ref
   const cellRefs = useRef<Map<string, HTMLElement | null>>(new Map());
@@ -530,29 +527,6 @@ export function BulkEditPage() {
     }
   };
 
-  // ── AI 차주 계획 제안 ────────────────────────────────────────────────────
-
-  const handleAiSummary = async (rowKey: string) => {
-    const row = rows.find((r) => r._key === rowKey);
-    if (!row?.this_week.trim()) {
-      toast.error('금주 진행 사항을 먼저 입력해주세요.');
-      return;
-    }
-    setAiLoadingKeys((prev) => new Set(prev).add(rowKey));
-    try {
-      const result = await aiGuideText(row.this_week);
-      updateRow(rowKey, 'next_week', result.guide);
-      toast.success('AI가 차주 계획을 제안했습니다. 수정 후 저장하세요.');
-    } catch {
-      toast.error('AI 요약 중 오류가 발생했습니다.');
-    } finally {
-      setAiLoadingKeys((prev) => {
-        const next = new Set(prev);
-        next.delete(rowKey);
-        return next;
-      });
-    }
-  };
 
   // ── 공통 셀 스타일 ───────────────────────────────────────────────────────
 
@@ -816,13 +790,6 @@ export function BulkEditPage() {
                   <th className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide text-center min-w-[140px]">
                     완료 예정일
                   </th>
-                  {/* AI */}
-                  <th
-                    className="px-3 py-3 text-xs font-bold uppercase tracking-wide text-center min-w-[50px]"
-                    style={{ color: BRAND }}
-                  >
-                    AI
-                  </th>
                   {/* 삭제 */}
                   <th className="px-3 py-3 text-xs font-bold text-slate-400 text-center w-10">
                     삭제
@@ -835,7 +802,6 @@ export function BulkEditPage() {
                   const isActive = activeKey === row._key;
                   const isInvalid =
                     !isRowEmpty(row) && isRowInvalid(row);
-                  const isAiLoading = aiLoadingKeys.has(row._key);
                   const isProject = row.work_type === '프로젝트';
                   const isDirtyExisting = !!row.weekly_reports_no && !!row._isDirty;
 
@@ -1131,34 +1097,6 @@ export function BulkEditPage() {
                         />
                       </td>
 
-                      {/* AI 차주 계획 제안 */}
-                      <td className="px-2 py-2 align-top text-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAiSummary(row._key);
-                          }}
-                          disabled={isAiLoading || !row.this_week.trim()}
-                          title={
-                            !row.this_week.trim()
-                              ? '금주 진행 사항을 입력하면 AI 제안을 받을 수 있습니다'
-                              : 'AI가 차주 계획을 제안합니다'
-                          }
-                          className="mt-1 p-1.5 rounded-lg border transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-80"
-                          style={{
-                            color: BRAND,
-                            borderColor: BRAND,
-                            backgroundColor: '#fff8f3',
-                          }}
-                        >
-                          {isAiLoading ? (
-                            <Loader2 size={13} className="animate-spin" />
-                          ) : (
-                            <Bot size={13} />
-                          )}
-                        </button>
-                      </td>
-
                       {/* 삭제 */}
                       <td className="px-2 py-2 align-top text-center">
                         <button
@@ -1207,10 +1145,6 @@ export function BulkEditPage() {
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-3 rounded-sm border border-red-300 bg-red-50" />
             필수값 누락 — 금주 진행 사항이 비어있는 행
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Bot size={12} style={{ color: BRAND }} />
-            AI: 금주 진행 사항 입력 후 클릭 → 차주 계획 자동 제안
           </span>
           <span>Tab 키로 다음 칸 이동, 마지막 칸에서 Tab → 새 행 자동 추가</span>
           <span>
