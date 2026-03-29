@@ -142,6 +142,16 @@ function ProgressBar({ value }: { value: number }) {
   );
 }
 
+// ─── 유틸: 완료 예정일 초과 여부 ────────────────────────────────────────────────
+
+function isOverdue(r: { due_date?: string | null; status?: string | null }): boolean {
+  if (!r.due_date) return false;
+  if (r.status === '완료' || r.status === 'COMPLETED') return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return new Date(r.due_date) < today;
+}
+
 // ─── 서브 컴포넌트: StatusBadge ──────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string | null }) {
@@ -1452,6 +1462,9 @@ export function WeeklySyncPage() {
                         상태
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                        완료 예정일
+                      </th>
+                      <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
                         진도율
                       </th>
                     </tr>
@@ -1461,11 +1474,12 @@ export function WeeklySyncPage() {
                       const teamRow = activeTab === 'team' ? (r as TeamWeeklyReport) : null;
                       const displayName = teamRow ? teamRow.author_name || r.id : r.id;
                       const initials = displayName.slice(0, 2).toUpperCase();
+                      const overdue = isOverdue(r);
                       return (
                       <tr
                         key={r.weekly_reports_no}
                         onClick={() => setEditTarget(r)}
-                        className="hover:bg-orange-50/40 cursor-pointer transition-colors"
+                        className={`cursor-pointer transition-colors ${overdue ? 'bg-red-50/60 hover:bg-red-50' : 'hover:bg-orange-50/40'}`}
                       >
                         {/* Author / Member */}
                         <td className="px-5 py-4">
@@ -1516,6 +1530,26 @@ export function WeeklySyncPage() {
                         {/* Status */}
                         <td className="px-4 py-4 whitespace-nowrap">
                           <StatusBadge status={r.status} />
+                        </td>
+
+                        {/* Due Date */}
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {r.due_date ? (
+                            <div className="flex items-center gap-1.5">
+                              {overdue ? (
+                                <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg bg-red-100 text-red-600 border border-red-200">
+                                  <span>⚠</span>
+                                  {r.due_date}
+                                </span>
+                              ) : (
+                                <span className="text-xs font-medium text-slate-500">
+                                  {r.due_date}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-300">-</span>
+                          )}
                         </td>
 
                         {/* Progress */}
