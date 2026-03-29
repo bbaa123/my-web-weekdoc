@@ -12,6 +12,7 @@ import { BulkEditPage } from './domains/weekly_reports/pages/BulkEditPage';
 import { TeamReportFeedView } from './domains/weekly_reports/pages/TeamReportFeedView';
 import { ReportsPage } from './domains/weekly_reports/pages/ReportsPage';
 import { OrgChartPage } from './domains/org_chart/pages/OrgChartPage';
+import { DepartmentManagePage } from './domains/departments/pages/DepartmentManagePage';
 import { MyPage } from './domains/users/pages/MyPage';
 import { PrivateRoute } from './core/auth/PrivateRoute';
 
@@ -144,6 +145,14 @@ function App() {
           element={
             <PrivateRoute>
               <MyPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/department-manage"
+          element={
+            <PrivateRoute>
+              <DepartmentManagePage />
             </PrivateRoute>
           }
         />
