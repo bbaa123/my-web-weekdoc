@@ -81,6 +81,7 @@ interface FormRow {
   priority: string;
   progress: number;
   issues: string;
+  due_date: string;
 }
 
 // 월요일 시작 기준으로 이번 달 몇 주차인지 계산
@@ -119,6 +120,7 @@ function makeEmptyRow(): FormRow {
     priority: '',
     progress: 0,
     issues: '',
+    due_date: '',
   };
 }
 
@@ -230,6 +232,7 @@ function NewReportModal({
           priority: null,
           issues: form.issues || null,
           status: form.status || null,
+          due_date: form.due_date || null,
         },
       ];
       await createWeeklyReports(payload);
@@ -493,6 +496,17 @@ function NewReportModal({
                   onChange={(e) => update('issues', e.target.value)}
                   placeholder="이슈 및 특이사항 (선택)"
                   className={`${fieldCls} resize-none`}
+                />
+              </div>
+
+              {/* 완료 예정일 */}
+              <div>
+                <label className={labelCls}>완료 예정일</label>
+                <input
+                  type="date"
+                  value={form.due_date}
+                  onChange={(e) => update('due_date', e.target.value)}
+                  className={fieldCls}
                 />
               </div>
 
