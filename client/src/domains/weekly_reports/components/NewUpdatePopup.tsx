@@ -610,6 +610,22 @@ export function NewUpdatePopup({ onClose, onSuccess }: NewUpdatePopupProps) {
                   className={cn(fieldCls, 'resize-none leading-relaxed')}
                 />
               </div>
+
+              {/* 완료 예정일 */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-2" htmlFor="due_date">
+                  완료 예정일
+                </label>
+                <input
+                  id="due_date"
+                  type="date"
+                  value={form.due_date}
+                  onChange={(e) => update('due_date', e.target.value)}
+                  onFocus={() => focus('due_date')}
+                  onBlur={blur}
+                  className={fieldCls}
+                />
+              </div>
             </div>
           </div>
         </div>

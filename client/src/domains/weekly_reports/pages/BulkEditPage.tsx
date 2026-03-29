@@ -49,6 +49,7 @@ interface BulkRow {
   issues: string;
   progress: number;
   status: string;
+  due_date: string;
 }
 
 // Tab 탐색 가능한 컬럼 순서
@@ -61,6 +62,7 @@ const COL_ORDER: Array<keyof BulkRow> = [
   'issues',
   'progress',
   'status',
+  'due_date',
 ];
 
 // ─── 유틸 ─────────────────────────────────────────────────────────────────
@@ -128,6 +130,7 @@ function makeEmptyRow(): BulkRow {
     issues: '',
     progress: 0,
     status: '',
+    due_date: '',
   };
 }
 
@@ -265,6 +268,7 @@ export function BulkEditPage() {
             issues: r.issues ?? '',
             progress: r.progress ?? 0,
             status: r.status ?? '',
+            due_date: r.due_date ?? '',
           }));
           setRows(loaded);
         }
@@ -433,6 +437,7 @@ export function BulkEditPage() {
           progress: r.progress,
           priority: null,
           status: r.status || null,
+          due_date: r.due_date || null,
         }));
         promises.push(createWeeklyReports(payload));
       }
@@ -449,6 +454,7 @@ export function BulkEditPage() {
             issues: r.issues || null,
             progress: r.progress,
             status: r.status || null,
+            due_date: r.due_date || null,
           }),
         );
       }
@@ -505,6 +511,7 @@ export function BulkEditPage() {
         issues: r.issues ?? '',
         progress: r.progress ?? 0,
         status: r.status ?? '',
+        due_date: r.due_date ?? '',
       }));
 
       setRows((prev) => {
@@ -805,6 +812,10 @@ export function BulkEditPage() {
                   <th className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide text-center min-w-[130px]">
                     상태
                   </th>
+                  {/* 완료 예정일 */}
+                  <th className="px-3 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide text-center min-w-[140px]">
+                    완료 예정일
+                  </th>
                   {/* AI */}
                   <th
                     className="px-3 py-3 text-xs font-bold uppercase tracking-wide text-center min-w-[50px]"
@@ -1099,6 +1110,25 @@ export function BulkEditPage() {
                             </option>
                           ))}
                         </select>
+                      </td>
+
+                      {/* 완료 예정일 */}
+                      <td className="px-3 py-2 align-top">
+                        <input
+                          ref={(el) =>
+                            cellRefs.current.set(`${row._key}:due_date`, el)
+                          }
+                          type="date"
+                          value={row.due_date}
+                          onChange={(e) =>
+                            updateRow(row._key, 'due_date', e.target.value)
+                          }
+                          onKeyDown={(e) =>
+                            handleCellKeyDown(e, row._key, 'due_date')
+                          }
+                          onFocus={() => setActiveKey(row._key)}
+                          className={cellCls}
+                        />
                       </td>
 
                       {/* AI 차주 계획 제안 */}
