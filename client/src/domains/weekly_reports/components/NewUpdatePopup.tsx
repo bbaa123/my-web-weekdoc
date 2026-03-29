@@ -100,6 +100,7 @@ interface FormState {
   progress: number;
   status: string;
   issues: string;
+  due_date: string;
 }
 
 function makeInitialForm(): FormState {
@@ -116,6 +117,7 @@ function makeInitialForm(): FormState {
     progress: 0,
     status: '',
     issues: '',
+    due_date: '',
   };
 }
 
@@ -226,6 +228,7 @@ export function NewUpdatePopup({ onClose, onSuccess }: NewUpdatePopupProps) {
           priority: null,
           issues: form.issues || null,
           status: form.status || (final ? '진행' : null),
+          due_date: form.due_date || null,
         },
       ];
       await createWeeklyReports(payload);
@@ -565,6 +568,22 @@ export function NewUpdatePopup({ onClose, onSuccess }: NewUpdatePopupProps) {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* 완료 예정일 */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-2" htmlFor="due_date">
+                  완료 예정일
+                </label>
+                <input
+                  id="due_date"
+                  type="date"
+                  value={form.due_date}
+                  onChange={(e) => update('due_date', e.target.value)}
+                  onFocus={() => focus('due_date')}
+                  onBlur={blur}
+                  className={fieldCls}
+                />
               </div>
 
               {/* 특이사항 / 이슈 — 포커스 시 왼쪽 주황 라인 */}

@@ -2,10 +2,10 @@
 WeeklyReport 모델 - weekly_reports 테이블
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, Text, text
+from sqlalchemy import CheckConstraint, Date, ForeignKey, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from server.app.core.database import Base
@@ -57,3 +57,4 @@ class WeeklyReport(Base):
     )
     feedback: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    due_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
