@@ -2,7 +2,7 @@
 WeeklyReport 도메인 스키마
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from pydantic import BaseModel, field_validator
@@ -28,6 +28,7 @@ class WeeklyReportResponse(BaseModel):
     submitted_at: Optional[datetime] = None
     feedback: Optional[str] = None
     summary: Optional[str] = None
+    due_date: Optional[date] = None
 
     model_config = {"from_attributes": True}
 
@@ -47,6 +48,7 @@ class WeeklyReportCreate(BaseModel):
     priority: Optional[str] = None
     issues: Optional[str] = None
     status: Optional[str] = None
+    due_date: Optional[date] = None
 
 
 class WeeklyReportUpdate(BaseModel):
@@ -65,6 +67,7 @@ class WeeklyReportUpdate(BaseModel):
     issues: Optional[str] = None
     status: Optional[str] = None
     summary: Optional[str] = None
+    due_date: Optional[date] = None
 
 
 class TeamWeeklyReportResponse(WeeklyReportResponse):

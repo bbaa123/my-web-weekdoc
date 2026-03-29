@@ -16,6 +16,7 @@ export interface WeeklyReport {
   submitted_at: string | null;
   feedback: string | null;
   summary: string | null;
+  due_date: string | null;
 }
 
 export interface AISummarizeResponse {
@@ -44,6 +45,7 @@ export interface WeeklyReportCreate {
   priority: string | null;
   issues: string | null;
   status: string | null;
+  due_date: string | null;
 }
 
 export interface WeeklyReportUpdate {
@@ -59,6 +61,7 @@ export interface WeeklyReportUpdate {
   priority?: string | null;
   issues?: string | null;
   status?: string | null;
+  due_date?: string | null;
 }
 
 export interface TeamWeeklyReport extends WeeklyReport {
