@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   CheckCheck,
@@ -307,7 +307,18 @@ function ReportCard({ report, isRead, onMarkRead }: ReportCardProps) {
 
 export function TeamReportFeedView() {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = useAuthStore((s) => s.user);
+
+  // 대시보드에서 전달된 필터 조건
+  const dashFilter = (location.state ?? {}) as {
+    filterYear?: string;
+    filterMonth?: string;
+    filterWeek?: string;
+    filterCategory?: string;
+    filterCompany?: string;
+    filterDepartment?: string;
+  };
 
   const [reports, setReports] = useState<TeamWeeklyReport[]>([]);
   const [loading, setLoading] = useState(true);
@@ -337,7 +348,7 @@ export function TeamReportFeedView() {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await fetchTeamReports();
+      const data = await fetchTeamReports(dashFilter.filterDepartment || undefined);
       setReports(data);
     } catch {
       toast.error('팀 보고서를 불러오는 데 실패했습니다.');
@@ -346,8 +357,15 @@ export function TeamReportFeedView() {
     }
   };
 
-  // ── 필터 로직 ──────────────────────────────────────────
+  // ── 필터 로직 (대시보드 조건 + 뷰 자체 필터 함께 적용) ───
   const filtered = reports.filter((r) => {
+    // 대시보드에서 전달된 조건 적용
+    if (dashFilter.filterYear && r.year !== dashFilter.filterYear) return false;
+    if (dashFilter.filterMonth && r.month !== dashFilter.filterMonth) return false;
+    if (dashFilter.filterWeek && r.week_number !== dashFilter.filterWeek) return false;
+    if (dashFilter.filterCategory && r.work_type !== dashFilter.filterCategory) return false;
+    if (dashFilter.filterCompany && r.company !== dashFilter.filterCompany) return false;
+    // 뷰 자체 필터
     if (filter === 'stopped') return r.status === '중단' || r.status === 'DELAYED' || r.status === '지연';
     if (filter === 'not-submitted') return !r.submitted_at;
     return true;
@@ -423,8 +441,29 @@ export function TeamReportFeedView() {
             <span className="text-sm font-black text-slate-900">팀 보고서 뷰</span>
           </div>
           <p className="mt-1 text-xs text-slate-400">
-            {totalCount}명 · 확인 {readCount}/{totalCount}
+            {totalCount}건 · 확인 {readCount}/{totalCount}
           </p>
+          {/* 대시보드에서 전달된 필터 조건 표시 */}
+          {(dashFilter.filterYear || dashFilter.filterMonth || dashFilter.filterWeek || dashFilter.filterCategory || dashFilter.filterCompany || dashFilter.filterDepartment) && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {[
+                dashFilter.filterYear && `${dashFilter.filterYear}년`,
+                dashFilter.filterMonth && `${dashFilter.filterMonth}월`,
+                dashFilter.filterWeek,
+                dashFilter.filterCategory,
+                dashFilter.filterCompany,
+                dashFilter.filterDepartment,
+              ].filter(Boolean).map((tag) => (
+                <span
+                  key={tag}
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+                  style={{ backgroundColor: '#fff3e8', color: BRAND }}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 통계 요약 */}

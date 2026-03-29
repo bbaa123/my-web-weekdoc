@@ -1386,7 +1386,16 @@ export function WeeklySyncPage() {
             {activeTab === 'team' && (
               <div className="ml-auto px-4 flex items-center gap-2">
                 <button
-                  onClick={() => navigate('/weekly-sync/team-view')}
+                  onClick={() => navigate('/weekly-sync/team-view', {
+                    state: {
+                      filterYear,
+                      filterMonth,
+                      filterWeek,
+                      filterCategory,
+                      filterCompany,
+                      filterDepartment: teamFilterDepartment,
+                    },
+                  })}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all"
                   style={{
                     backgroundColor: '#FFF7F0',
