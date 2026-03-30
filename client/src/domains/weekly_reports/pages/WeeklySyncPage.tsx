@@ -1201,14 +1201,12 @@ export function WeeklySyncPage() {
             >
               Teams
             </button>
-            {user.is_admin && (
-              <button
-                onClick={() => navigate('/department-manage')}
-                className="hover:text-slate-700 cursor-pointer"
-              >
-                부서관리
-              </button>
-            )}
+            <button
+              onClick={() => navigate('/department-manage')}
+              className="hover:text-slate-700 cursor-pointer"
+            >
+              Departments
+            </button>
           </nav>
 
           <div className="flex items-center gap-3">

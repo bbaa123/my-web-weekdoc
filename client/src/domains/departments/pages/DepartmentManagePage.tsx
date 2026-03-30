@@ -63,15 +63,11 @@ export function DepartmentManagePage() {
     }
   }, []);
 
+  const isAdmin = user?.is_admin ?? false;
+
   useEffect(() => {
-    // admin이 아니면 접근 차단
-    if (user && !user.is_admin) {
-      toast.error('관리자만 접근할 수 있습니다.');
-      navigate('/weekly-sync');
-      return;
-    }
     load();
-  }, [load, user, navigate]);
+  }, [load]);
 
   // ─── 모달 열기 ──────────────────────────────────────────────────────────
   const openCreate = () => {
@@ -175,7 +171,9 @@ export function DepartmentManagePage() {
           </button>
           <div className="flex items-center gap-2">
             <Building2 size={20} style={{ color: BRAND }} />
-            <h1 className="text-lg font-bold text-gray-800">부서 관리</h1>
+            <h1 className="text-lg font-bold text-gray-800">
+              Departments{isAdmin ? ' 관리' : ''}
+            </h1>
           </div>
         </div>
 
@@ -214,14 +212,16 @@ export function DepartmentManagePage() {
             <h2 className="text-xl font-bold text-gray-900">부서 목록</h2>
             <p className="text-sm text-gray-500 mt-0.5">총 {depts.length}개 부서</p>
           </div>
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold transition-colors hover:opacity-90"
-            style={{ backgroundColor: BRAND }}
-          >
-            <Plus size={16} />
-            부서 추가
-          </button>
+          {isAdmin && (
+            <button
+              onClick={openCreate}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold transition-colors hover:opacity-90"
+              style={{ backgroundColor: BRAND }}
+            >
+              <Plus size={16} />
+              부서 추가
+            </button>
+          )}
         </div>
 
         {/* 테이블 */}
@@ -240,7 +240,9 @@ export function DepartmentManagePage() {
                   <th className="text-center px-4 py-3 font-semibold text-gray-600">레벨</th>
                   <th className="text-center px-4 py-3 font-semibold text-gray-600">정렬순서</th>
                   <th className="text-center px-4 py-3 font-semibold text-gray-600">사용여부</th>
-                  <th className="text-center px-4 py-3 font-semibold text-gray-600">관리</th>
+                  {isAdmin && (
+                    <th className="text-center px-4 py-3 font-semibold text-gray-600">관리</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -282,24 +284,26 @@ export function DepartmentManagePage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => openEdit(dept)}
-                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                          title="수정"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(dept)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                          title="삭제"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => openEdit(dept)}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="수정"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget(dept)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="삭제"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
