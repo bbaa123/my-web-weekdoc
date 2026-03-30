@@ -13,6 +13,7 @@ import { TeamReportFeedView } from './domains/weekly_reports/pages/TeamReportFee
 import { ReportsPage } from './domains/weekly_reports/pages/ReportsPage';
 import { OrgChartPage } from './domains/org_chart/pages/OrgChartPage';
 import { DepartmentManagePage } from './domains/departments/pages/DepartmentManagePage';
+import { UserManagePage } from './domains/users/pages/UserManagePage';
 import { MyPage } from './domains/users/pages/MyPage';
 import { PrivateRoute } from './core/auth/PrivateRoute';
 
@@ -153,6 +154,14 @@ function App() {
           element={
             <PrivateRoute>
               <DepartmentManagePage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/user-manage"
+          element={
+            <PrivateRoute>
+              <UserManagePage />
             </PrivateRoute>
           }
         />

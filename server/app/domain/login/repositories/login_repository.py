@@ -24,6 +24,16 @@ class LoginRepository:
         await self.db.refresh(login)
         return login
 
+    async def list_all(self) -> list[Login]:
+        result = await self.db.execute(select(Login).order_by(Login.name))
+        return list(result.scalars().all())
+
+    async def update_admin_yn(self, login_id: str, admin_yn: bool) -> None:
+        login = await self.get_by_id(login_id)
+        if login:
+            login.admin_yn = admin_yn
+            await self.db.commit()
+
     async def update_password(self, login_id: str, new_password: str) -> None:
         login = await self.get_by_id(login_id)
         if login:

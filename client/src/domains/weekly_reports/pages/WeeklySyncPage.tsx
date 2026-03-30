@@ -1207,6 +1207,12 @@ export function WeeklySyncPage() {
             >
               Departments
             </button>
+            <button
+              onClick={() => navigate('/user-manage')}
+              className="hover:text-slate-700 cursor-pointer"
+            >
+              Users
+            </button>
           </nav>
 
           <div className="flex items-center gap-3">

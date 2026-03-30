@@ -9,6 +9,7 @@ from server.app.core.dependencies import get_current_login_user, get_database_se
 from server.app.domain.auth.repositories.user_repository import UserRepository
 from server.app.domain.auth.schemas.user_schemas import UserProfileResponse, UserUpsertRequest
 from server.app.domain.login.models.login import Login
+from server.app.domain.login.repositories.login_repository import LoginRepository
 from server.app.domain.login.schemas.login_schemas import ChangePasswordRequest, LoginCreate, LoginRequest, LoginTokenResponse
 from server.app.domain.login.service import LoginService
 
@@ -101,6 +102,98 @@ async def change_password(
         await service.change_password(current_login.id, data)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get(
+    "/users",
+    response_model=list[UserProfileResponse],
+    summary="전체 사용자 목록 조회 (관리자 전용)",
+)
+async def list_all_users(
+    current_login: Login = Depends(get_current_login_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> list[UserProfileResponse]:
+    if not current_login.admin_yn:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="관리자만 접근 가능합니다.")
+    login_repo = LoginRepository(db)
+    user_repo = UserRepository(db)
+    logins = await login_repo.list_all()
+    result: list[UserProfileResponse] = []
+    for login_user in logins:
+        profile = await user_repo.get_by_id(login_user.id)
+        if profile:
+            result.append(UserProfileResponse(
+                id=profile.id,
+                name=profile.name,
+                email=profile.email,
+                department=profile.department,
+                position=profile.position,
+                admin_yn=login_user.admin_yn,
+                tel=profile.tel,
+                job=profile.job,
+                nicname=profile.nicname,
+                remark=profile.remark,
+                picture=profile.picture,
+                exists_in_users=True,
+            ))
+        else:
+            result.append(UserProfileResponse(
+                id=login_user.id,
+                name=login_user.name,
+                email=login_user.email,
+                admin_yn=login_user.admin_yn,
+                exists_in_users=False,
+            ))
+    return result
+
+
+@router.put(
+    "/users/{user_id}",
+    response_model=UserProfileResponse,
+    summary="특정 사용자 프로필 수정 (관리자 전용)",
+)
+async def admin_update_user(
+    user_id: str,
+    data: UserUpsertRequest,
+    current_login: Login = Depends(get_current_login_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> UserProfileResponse:
+    if not current_login.admin_yn:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="관리자만 접근 가능합니다.")
+    login_repo = LoginRepository(db)
+    target_login = await login_repo.get_by_id(user_id)
+    if not target_login:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="사용자를 찾을 수 없습니다.")
+    # login 테이블 admin_yn 동기화
+    await login_repo.update_admin_yn(user_id, data.admin_yn)
+    user_repo = UserRepository(db)
+    user = await user_repo.upsert(
+        user_id=user_id,
+        name=data.name,
+        email=data.email,
+        department=data.department,
+        position=data.position,
+        admin_yn=data.admin_yn,
+        tel=data.tel,
+        job=data.job,
+        nicname=data.nicname,
+        remark=data.remark,
+        picture=data.picture,
+    )
+    return UserProfileResponse(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        department=user.department,
+        position=user.position,
+        admin_yn=data.admin_yn,
+        tel=user.tel,
+        job=user.job,
+        nicname=user.nicname,
+        remark=user.remark,
+        picture=user.picture,
+        exists_in_users=True,
+    )
 
 
 @router.put(
