@@ -91,8 +91,35 @@ export const useAuthStore = create<AuthState>()(
           position: '매니저',
           is_admin: user.admin_yn,
           is_active: true,
+          picture: null,
+          nicname: null,
         };
+        // 토큰을 먼저 저장해야 이후 프로필 API 호출 시 인증 헤더가 붙음
         set({ user: mappedUser, token: access_token, isAuthenticated: true });
+
+        // 프로필 API로 picture, nicname 등 추가 정보 보완
+        try {
+          const profileRes = await apiClient.get<{
+            picture?: string | null;
+            nicname?: string | null;
+            name?: string;
+            department?: string | null;
+          }>('/api/v1/login-auth/profile');
+          const profile = profileRes.data;
+          set((state) => ({
+            user: state.user
+              ? {
+                  ...state.user,
+                  picture: profile.picture ?? null,
+                  nicname: profile.nicname ?? null,
+                  name: profile.name || state.user.name,
+                  department: profile.department || state.user.department,
+                }
+              : state.user,
+          }));
+        } catch {
+          // 프로필 조회 실패해도 기본 로그인은 유지
+        }
       },
 
       register: async (data: RegisterData) => {
