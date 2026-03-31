@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Users, Pencil, LogOut, User, X, Check, Shield, ShieldOff } from 'lucide-react';
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
-import { DepartmentSelect } from '@/core/ui/DepartmentSelect';
+import { DepartmentSelect, UserAvatar } from '@/core/ui';
 import { fetchAllUsers, adminUpdateUser } from '../api';
 import { POSITION_OPTIONS } from '../types';
 import type { UserProfile, UserUpsertRequest } from '../types';
@@ -125,10 +125,18 @@ export function UserManagePage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200">
-            <User size={14} className="text-gray-500" />
-            <span className="text-sm text-gray-700 font-medium">{user?.name}</span>
-          </div>
+          <button
+            onClick={() => navigate('/my-page')}
+            className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-lg border border-orange-100 hover:bg-orange-100 hover:border-orange-200 transition-all cursor-pointer"
+            title="My Page로 이동"
+          >
+            {user && (
+              <UserAvatar picture={user.picture} nicname={user.nicname} name={user.name} size="sm" />
+            )}
+            <span className="text-sm text-gray-700 font-medium">
+              {user?.nicname || user?.name}
+            </span>
+          </button>
           <button
             onClick={handleLogout}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-red-600 border border-gray-200 rounded-lg hover:bg-red-50 transition-colors"

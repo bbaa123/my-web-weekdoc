@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, Plus, Pencil, Trash2, LogOut, User, X, Check } from 'lucide-react';
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
+import { UserAvatar } from '@/core/ui/UserAvatar';
 import {
   fetchDepartments,
   createDepartment,
@@ -188,10 +189,18 @@ export function DepartmentManagePage() {
           </button>
 
           {/* 사용자 */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200">
-            <User size={14} className="text-gray-500" />
-            <span className="text-sm text-gray-700 font-medium">{user?.name}</span>
-          </div>
+          <button
+            onClick={() => navigate('/my-page')}
+            className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-lg border border-orange-100 hover:bg-orange-100 hover:border-orange-200 transition-all cursor-pointer"
+            title="My Page로 이동"
+          >
+            {user && (
+              <UserAvatar picture={user.picture} nicname={user.nicname} name={user.name} size="sm" />
+            )}
+            <span className="text-sm text-gray-700 font-medium">
+              {user?.nicname || user?.name}
+            </span>
+          </button>
 
           {/* 로그아웃 */}
           <button

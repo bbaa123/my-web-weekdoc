@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
+import { UserAvatar } from '@/core/ui/UserAvatar';
 import { fetchOrgChart } from '../api';
 import type { OrgChartDept, OrgChartUser, DeptTreeNode } from '../types';
 
@@ -139,7 +140,7 @@ function UserCard({ user }: { user: OrgChartUser }) {
             display: user.picture ? 'none' : 'flex',
           }}
         >
-          {user.name.charAt(0)}
+          {(user.nicname || user.name).charAt(0)}
         </div>
       </div>
 
@@ -502,13 +503,15 @@ export function OrgChartPage() {
 
           {/* 사용자 정보 + 로그아웃 */}
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-xl border border-orange-100">
-              {isAdmin ? (
-                <Shield size={14} style={{ color: BRAND }} />
-              ) : (
-                <User size={14} className="text-slate-500" />
-              )}
-              <span className="text-sm font-semibold text-slate-700">{user.name}</span>
+            <button
+              onClick={() => navigate('/my-page')}
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-xl border border-orange-100 hover:bg-orange-100 hover:border-orange-200 transition-all cursor-pointer"
+              title="My Page로 이동"
+            >
+              <UserAvatar picture={user.picture} nicname={user.nicname} name={user.name} size="sm" />
+              <span className="text-sm font-semibold text-slate-700">
+                {user.nicname || user.name}
+              </span>
               {isAdmin && (
                 <span
                   className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-orange-100"
@@ -517,7 +520,7 @@ export function OrgChartPage() {
                   관리자
                 </span>
               )}
-            </div>
+            </button>
             <button
               onClick={handleLogout}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
