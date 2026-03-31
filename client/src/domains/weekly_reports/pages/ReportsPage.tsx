@@ -391,20 +391,20 @@ export function ReportsPage() {
           </button>
 
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-500">
-            <button
-              onClick={() => navigate('/weekly-sync')}
-              className="hover:text-slate-700 cursor-pointer"
-            >
+            <button onClick={() => navigate('/weekly-sync')} className="hover:text-slate-700 cursor-pointer">
               Dashboard
             </button>
             <span className="text-slate-900 border-b-2 pb-0.5" style={{ borderColor: BRAND }}>
               Reports
             </span>
-            <button
-              onClick={() => navigate('/org-chart')}
-              className="hover:text-slate-700 cursor-pointer"
-            >
+            <button onClick={() => navigate('/org-chart')} className="hover:text-slate-700 cursor-pointer">
               Teams
+            </button>
+            <button onClick={() => navigate('/department-manage')} className="hover:text-slate-700 cursor-pointer">
+              Departments
+            </button>
+            <button onClick={() => navigate('/user-manage')} className="hover:text-slate-700 cursor-pointer">
+              Users
             </button>
           </nav>
 

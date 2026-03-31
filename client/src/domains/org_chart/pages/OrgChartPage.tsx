@@ -462,7 +462,7 @@ export function OrgChartPage() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-orange-50 flex flex-col">
       {/* ── 헤더 ──────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-30 bg-white border-b border-slate-100 shadow-sm">
         <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between gap-4">
