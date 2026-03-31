@@ -9,3 +9,4 @@ export { Card, CardHeader, CardBody, CardFooter } from './Card';
 export { Input } from './Input';
 export { Modal } from './Modal';
 export { DepartmentSelect } from './DepartmentSelect';
+export { UserAvatar } from './UserAvatar';
