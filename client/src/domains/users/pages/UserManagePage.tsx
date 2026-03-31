@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Pencil, LogOut, User, X, Check, Shield, ShieldOff } from 'lucide-react';
+import { Users, Pencil, LogOut, X, Check, Shield, ShieldOff, CalendarDays } from 'lucide-react';
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
 import { DepartmentSelect, UserAvatar } from '@/core/ui';
@@ -110,40 +110,66 @@ export function UserManagePage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* 헤더 */}
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-100 shadow-sm">
+        <div className="max-w-[1400px] mx-auto px-6 py-3 flex items-center justify-between">
+          {/* 로고 */}
           <button
             onClick={() => navigate('/weekly-sync')}
-            className="text-gray-500 hover:text-gray-700 text-sm transition-colors"
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
           >
-            ← 대시보드
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm" style={{ backgroundColor: BRAND }}>
+              <CalendarDays className="text-white" size={20} />
+            </div>
+            <div>
+              <span className="text-lg font-black text-slate-900">VNTG</span>
+              <span className="ml-2 text-xs font-semibold" style={{ color: BRAND }}>주간보고</span>
+            </div>
           </button>
-          <div className="flex items-center gap-2">
-            <Users size={20} style={{ color: BRAND }} />
-            <h1 className="text-lg font-bold text-gray-800">Users</h1>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/my-page')}
-            className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-lg border border-orange-100 hover:bg-orange-100 hover:border-orange-200 transition-all cursor-pointer"
-            title="My Page로 이동"
-          >
-            {user && (
-              <UserAvatar picture={user.picture} nicname={user.nicname} name={user.name} size="sm" />
-            )}
-            <span className="text-sm text-gray-700 font-medium">
-              {user?.nicname || user?.name}
+          {/* 네비게이션 */}
+          <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-500">
+            <button onClick={() => navigate('/weekly-sync')} className="hover:text-slate-700 cursor-pointer">
+              Dashboard
+            </button>
+            <button onClick={() => navigate('/reports')} className="hover:text-slate-700 cursor-pointer">
+              Reports
+            </button>
+            <button onClick={() => navigate('/org-chart')} className="hover:text-slate-700 cursor-pointer">
+              Teams
+            </button>
+            <button onClick={() => navigate('/department-manage')} className="hover:text-slate-700 cursor-pointer">
+              Departments
+            </button>
+            <span className="text-slate-900 border-b-2 pb-0.5" style={{ borderColor: BRAND }}>
+              Users
             </span>
-          </button>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 hover:text-red-600 border border-gray-200 rounded-lg hover:bg-red-50 transition-colors"
-          >
-            <LogOut size={14} />
-            로그아웃
-          </button>
+          </nav>
+
+          {/* 사용자 + 로그아웃 */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/my-page')}
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-xl border border-orange-100 hover:bg-orange-100 hover:border-orange-200 transition-all cursor-pointer"
+              title="My Page로 이동"
+            >
+              {user && (
+                <UserAvatar picture={user.picture} nicname={user.nicname} name={user.name} size="sm" />
+              )}
+              <span className="text-sm font-semibold text-slate-700">{user?.nicname || user?.name}</span>
+              {isAdmin && (
+                <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-orange-100" style={{ color: BRAND }}>
+                  관리자
+                </span>
+              )}
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+            >
+              <LogOut size={15} />
+              로그아웃
+            </button>
+          </div>
         </div>
       </header>
 

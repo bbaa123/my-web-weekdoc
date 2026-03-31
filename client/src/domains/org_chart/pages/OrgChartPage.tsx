@@ -481,24 +481,21 @@ export function OrgChartPage() {
 
           {/* 네비게이션 */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-500">
-            <button
-              onClick={() => navigate('/weekly-sync')}
-              className="hover:text-slate-700 transition-colors"
-            >
+            <button onClick={() => navigate('/weekly-sync')} className="hover:text-slate-700 transition-colors">
               Dashboard
             </button>
-            <button
-              onClick={() => navigate('/weekly-sync')}
-              className="hover:text-slate-700 transition-colors"
-            >
+            <button onClick={() => navigate('/reports')} className="hover:text-slate-700 transition-colors">
               Reports
             </button>
-            <span
-              className="border-b-2 pb-0.5"
-              style={{ color: BRAND, borderColor: BRAND }}
-            >
-              Team
+            <span className="border-b-2 pb-0.5" style={{ color: BRAND, borderColor: BRAND }}>
+              Teams
             </span>
+            <button onClick={() => navigate('/department-manage')} className="hover:text-slate-700 transition-colors">
+              Departments
+            </button>
+            <button onClick={() => navigate('/user-manage')} className="hover:text-slate-700 transition-colors">
+              Users
+            </button>
           </nav>
 
           {/* 사용자 정보 + 로그아웃 */}
