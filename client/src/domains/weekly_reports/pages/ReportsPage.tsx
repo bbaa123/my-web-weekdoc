@@ -313,58 +313,99 @@ export function ReportsPage() {
     navigate('/login');
   };
 
-  const handleExportPdf = async () => {
-    if (!briefingRef.current) return;
+  const handleExportPdf = () => {
+    if (!briefingData) return;
     setExportingPdf(true);
-    try {
-      const html2canvas = (await import('html2canvas')).default;
-      const jsPDF = (await import('jspdf')).jsPDF;
 
-      const canvas = await html2canvas(briefingRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-      });
+    const steps = parseBriefing(briefingData.briefing);
 
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const stepColors: Record<number, { bg: string; border: string; label: string }> = {
+      1: { bg: '#fff7ed', border: '#fdba74', label: 'Step 1' },
+      2: { bg: '#f8fafc', border: '#cbd5e1', label: 'Step 2' },
+      3: { bg: '#eff6ff', border: '#93c5fd', label: 'Step 3' },
+      4: { bg: '#fef2f2', border: '#fca5a5', label: 'Step 4' },
+      5: { bg: '#0f172a', border: '#334155', label: 'Step 5' },
+    };
 
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-      const imgW = pageW - margin * 2;
-      const imgH = (canvas.height * imgW) / canvas.width;
+    const stepsHtml = steps
+      .map((step) => {
+        const c = stepColors[step.stepNumber] ?? { bg: '#f8fafc', border: '#cbd5e1', label: `Step ${step.stepNumber}` };
+        const isStep5 = step.stepNumber === 5;
+        const textColor = isStep5 ? '#f1f5f9' : '#334155';
+        const titleColor = isStep5 ? '#94a3b8' : '#1e293b';
 
-      let y = margin;
-      let remaining = imgH;
+        const MOMENTUM_BORDERS: Record<string, string> = {
+          '🔥': '#f97316',
+          '⚠️': '#eab308',
+          '⚖️': '#a855f7',
+        };
 
-      while (remaining > 0) {
-        const sliceH = Math.min(remaining, pageH - margin * 2);
-        const srcY = (imgH - remaining) * (canvas.height / imgH);
-        const srcH = sliceH * (canvas.height / imgH);
+        const itemsHtml = step.items
+          .map((item) => {
+            const emoji = Object.keys(MOMENTUM_BORDERS).find((e) => item.startsWith(e));
+            const accentColor = isStep5 && emoji ? MOMENTUM_BORDERS[emoji] : (isStep5 ? '#475569' : '#f97316');
+            return isStep5
+              ? `<div style="border-left:3px solid ${accentColor};padding:6px 10px;margin-bottom:8px;border-radius:0 6px 6px 0;background:rgba(255,255,255,0.05);">
+                   <span style="font-size:13px;color:${textColor};line-height:1.6;">${item}</span>
+                 </div>`
+              : `<div style="display:flex;gap:8px;margin-bottom:6px;">
+                   <span style="color:${accentColor};flex-shrink:0;">•</span>
+                   <span style="font-size:13px;color:${textColor};line-height:1.6;">${item}</span>
+                 </div>`;
+          })
+          .join('');
 
-        const sliceCanvas = document.createElement('canvas');
-        sliceCanvas.width = canvas.width;
-        sliceCanvas.height = srcH;
-        const ctx = sliceCanvas.getContext('2d')!;
-        ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+        return `
+          <div style="background:${c.bg};border:1px solid ${c.border};border-radius:12px;padding:16px;margin-bottom:12px;">
+            <div style="font-size:12px;font-weight:900;color:${titleColor};margin-bottom:10px;">
+              ${c.label} · ${step.title}
+            </div>
+            ${itemsHtml}
+          </div>`;
+      })
+      .join('');
 
-        pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, y, imgW, sliceH);
-        remaining -= sliceH;
-        if (remaining > 0) {
-          pdf.addPage();
-          y = margin;
-        }
-      }
-
-      const fileName = `브리핑_${selectedDeptName}_${filterYear}${filterMonth}_${filterWeek}.pdf`;
-      pdf.save(fileName);
-    } catch {
-      toast.error('PDF 내보내기에 실패했습니다.');
-    } finally {
-      setExportingPdf(false);
+    const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>브리핑_${selectedDeptName}_${filterYear}${filterMonth}_${filterWeek}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: #fff; padding: 32px; color: #1e293b; }
+    @media print {
+      body { padding: 16px; }
+      @page { margin: 15mm; size: A4; }
     }
+  </style>
+</head>
+<body>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #ff6b00;">
+    <div>
+      <div style="font-size:18px;font-weight:900;color:#1e293b;">센터 주간 종합 브리핑</div>
+      <div style="font-size:12px;color:#64748b;margin-top:3px;">
+        ${selectedDeptName} · ${filterYear}년 ${parseInt(filterMonth)}월 ${filterWeek} · ${briefingData.total_reports}명 분석
+      </div>
+    </div>
+    <div style="font-size:11px;color:#94a3b8;">AI 생성 · ${new Date().toLocaleDateString('ko-KR')}</div>
+  </div>
+  ${stepsHtml}
+</body>
+</html>`;
+
+    const win = window.open('', '_blank', 'width=900,height=800');
+    if (!win) {
+      toast.error('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.');
+      setExportingPdf(false);
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+      win.print();
+      setExportingPdf(false);
+    }, 500);
   };
 
   // ── 차트 데이터 ────────────────────────────────────────────────────────────
