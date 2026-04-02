@@ -159,14 +159,12 @@ async def change_password(
 @router.get(
     "/users",
     response_model=list[UserProfileResponse],
-    summary="전체 사용자 목록 조회 (관리자 전용)",
+    summary="전체 사용자 목록 조회 (인증된 사용자 조회 가능, 수정은 관리자 전용)",
 )
 async def list_all_users(
     current_login: Login = Depends(get_current_login_user),
     db: AsyncSession = Depends(get_database_session),
 ) -> list[UserProfileResponse]:
-    if not current_login.admin_yn:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="관리자만 접근 가능합니다.")
     login_repo = LoginRepository(db)
     user_repo = UserRepository(db)
     logins = await login_repo.list_all()
