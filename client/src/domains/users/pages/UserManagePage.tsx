@@ -64,6 +64,7 @@ export function UserManagePage() {
   }, [load]);
 
   const openEdit = (u: UserProfile) => {
+    if (!isAdmin) return;
     setEditTarget(u);
     setForm(makeForm(u));
   };
@@ -183,8 +184,13 @@ export function UserManagePage() {
             <h2 className="text-xl font-bold text-gray-900">사용자 목록</h2>
             <p className="text-sm text-gray-500 mt-0.5">총 {users.length}명</p>
           </div>
-          {!isAdmin && (
-            <span className="text-xs text-gray-400 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200">
+          {isAdmin ? (
+            <span className="text-xs font-semibold text-white px-3 py-1.5 rounded-lg" style={{ backgroundColor: BRAND }}>
+              관리자 모드
+            </span>
+          ) : (
+            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1.5">
+              <Users size={12} />
               조회 전용
             </span>
           )}
