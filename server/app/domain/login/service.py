@@ -40,7 +40,12 @@ class LoginService:
         if not login or login.password_hash != password:
             raise ValueError("아이디 또는 비밀번호가 올바르지 않습니다.")
 
-        await self.repo.update_last_login(login_id)
+        try:
+            await self.repo.update_last_login(login_id)
+        except Exception:
+            # 마이그레이션 미실행 환경에서도 로그인은 정상 처리
+            await self.db.rollback()
+
         token = create_access_token({"sub": login.id, "type": "login"})
         return LoginTokenResponse(
             access_token=token,
@@ -48,7 +53,10 @@ class LoginService:
         )
 
     async def logout(self, login_id: str) -> None:
-        await self.repo.update_last_logout(login_id)
+        try:
+            await self.repo.update_last_logout(login_id)
+        except Exception:
+            await self.db.rollback()
 
     async def change_password(self, login_id: str, data: ChangePasswordRequest) -> None:
         if data.new_password != data.confirm_new_password:

@@ -73,7 +73,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         - 리소스 정리
     """
 
-    print_vibe_signature()
+    try:
+        print_vibe_signature()
+    except Exception:
+        # Windows CP949 등 터미널 인코딩 미지원 환경에서 안전하게 무시
+        pass
 
     # 시작 시 실행
     logger.info("🚀 Starting application...")
