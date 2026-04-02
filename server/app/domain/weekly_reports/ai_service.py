@@ -130,10 +130,15 @@ class WeeklyReportAIService:
             "(업무 성격별로 그룹핑하여 각 그룹을 불릿(•)으로 요약. 예: 인사연동/유지보수/신규개발/기타)\n\n"
             "##Step 4: Critical Path - 관리자 즉시 개입 필요\n"
             "(즉시 의사결정이나 개입이 필요한 항목만 불릿(•)으로. 없으면 '• 즉시 개입 필요 항목 없음')\n\n"
-            "전체 분량은 800자 이내로 간결하게 작성해줘."
+            "##Step 5: 관리용 모멘텀 대시보드\n"
+            "(아래 형식으로 정확히 3줄 작성. 각 줄 앞에 이모지 그대로 사용)\n"
+            "🔥 집중 업무: [팀 리소스가 가장 많이 투입되는 프로젝트/업무명] (팀 리소스 약 XX% 투입 중)\n"
+            "⚠️ 정체 구간: [현재 진척이 멈춘 업무명] (원인: [구체적 이유, 예: 외부 API 회신 대기 3일째])\n"
+            "⚖️ 리소스 불균형: [특정 인원/역할에 과부하 또는 편중 상황 설명] → [권고 조치]\n\n"
+            "전체 분량은 1000자 이내로 간결하게 작성해줘."
         )
 
-        return _call_gemini_with_retry(self._model, prompt, max_tokens=1500)
+        return _call_gemini_with_retry(self._model, prompt, max_tokens=2000)
 
     def guide(self, this_week: str) -> str:
         """

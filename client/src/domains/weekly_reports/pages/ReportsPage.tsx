@@ -21,21 +21,7 @@ import {
   Zap,
   Loader2,
   Users,
-  BarChart3,
 } from 'lucide-react';
-import {
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
 import { getCurrentWeekInfo } from '@/core/utils/date';
@@ -324,25 +310,6 @@ export function ReportsPage() {
   };
 
   // ── 차트 데이터 ────────────────────────────────────────────────────────────
-  const pieData = useMemo(() => {
-    if (!briefingData) return [];
-    return Object.entries(briefingData.status_stats).map(([status, count]) => ({
-      name: STATUS_DISPLAY[status] || status,
-      value: count,
-      color: STATUS_COLORS[status] || '#94a3b8',
-    }));
-  }, [briefingData]);
-
-  const barData = useMemo(() => {
-    if (!briefingData) return [];
-    return briefingData.dept_stats.map((d) => ({
-      dept: d.dept.length > 8 ? d.dept.slice(0, 8) + '…' : d.dept,
-      완료: d.completed,
-      미완료: d.total - d.completed,
-      완료율: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
-    }));
-  }, [briefingData]);
-
   const briefingSteps = useMemo(() => {
     if (!briefingData) return [];
     return parseBriefing(briefingData.briefing);
@@ -711,73 +678,42 @@ export function ReportsPage() {
               )}
             </div>
 
-            {/* ── 통계 차트 ─────────────────────────────────────────────── */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* 업무 상태 분포 파이 차트 */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            {/* Step 5: 관리용 모멘텀 대시보드 */}
+            {briefingSteps[4] && (
+              <div className="bg-slate-900 rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-4">
-                  <BarChart3 size={16} className="text-slate-400" />
-                  <h3 className="text-sm font-bold text-slate-700">업무 상태 분포</h3>
+                  <span className="text-base">🚩</span>
+                  <h3 className="text-sm font-black text-white">
+                    관리용 모멘텀 대시보드
+                  </h3>
+                  <span className="ml-auto text-xs font-semibold text-slate-400">
+                    리소스 투입 비중 · 병목 지점 분석
+                  </span>
                 </div>
-                {pieData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={180}>
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={45}
-                        outerRadius={75}
-                        paddingAngle={3}
-                        dataKey="value"
+                <div className="space-y-3">
+                  {briefingSteps[4].items.map((item, idx) => {
+                    const isFireLine = item.startsWith('🔥');
+                    const isWarningLine = item.startsWith('⚠️');
+                    const isScaleLine = item.startsWith('⚖️');
+                    const accent = isFireLine
+                      ? 'border-orange-500 bg-orange-950/40'
+                      : isWarningLine
+                        ? 'border-yellow-500 bg-yellow-950/40'
+                        : isScaleLine
+                          ? 'border-purple-500 bg-purple-950/40'
+                          : 'border-slate-600 bg-slate-800';
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex items-start gap-3 border-l-2 pl-3 py-2 rounded-r-xl ${accent}`}
                       >
-                        {pieData.map((entry, index) => (
-                          <Cell key={index} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value) => [`${value}건`]}
-                      />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-sm text-slate-400 text-center py-8">데이터 없음</p>
-                )}
-              </div>
-
-              {/* 부서별 완료율 바 차트 */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-                <div className="flex items-center gap-2 mb-4">
-                  <BarChart3 size={16} className="text-slate-400" />
-                  <h3 className="text-sm font-bold text-slate-700">부서별 완료율</h3>
+                        <span className="text-sm text-slate-100 leading-relaxed">{item}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-                {barData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={180}>
-                    <BarChart
-                      data={barData}
-                      margin={{ top: 0, right: 0, left: -20, bottom: 0 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis
-                        dataKey="dept"
-                        tick={{ fontSize: 11 }}
-                        interval={0}
-                      />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip
-                        formatter={(value) => [`${value}건`]}
-                      />
-                      <Legend />
-                      <Bar dataKey="완료" fill="#10b981" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="미완료" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-sm text-slate-400 text-center py-8">데이터 없음</p>
-                )}
               </div>
-            </div>
+            )}
           </div>
         )}
 
