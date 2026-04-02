@@ -15,8 +15,10 @@ import {
   ChevronDown,
   ChevronUp,
   AlertTriangle,
-  Trophy,
-  Lightbulb,
+  Activity,
+  Grid3X3,
+  Layers,
+  Zap,
   Loader2,
   Users,
   BarChart3,
@@ -76,74 +78,67 @@ const STATUS_DISPLAY: Record<string, string> = {
 
 // ─── 브리핑 파서 ──────────────────────────────────────────────────────────────
 
-interface BriefingSection {
+interface BriefingStep {
+  stepNumber: number;
   title: string;
-  icon: React.ReactNode;
   items: string[];
-  color: string;
-  bgColor: string;
+  rawContent: string;
 }
 
-function parseBriefing(briefing: string): BriefingSection[] {
-  const sectionDefs = [
-    {
-      key: '이번 주 3대 핵심 성과',
-      icon: <Trophy size={18} />,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-50 border-orange-200',
-    },
-    {
-      key: '즉시 확인이 필요한 리스크',
-      icon: <AlertTriangle size={18} />,
-      color: 'text-red-600',
-      bgColor: 'bg-red-50 border-red-200',
-    },
-    {
-      key: '조직 관리 제언',
-      icon: <Lightbulb size={18} />,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50 border-blue-200',
-    },
-  ];
+function parseBriefing(briefing: string): BriefingStep[] {
+  const steps: BriefingStep[] = [];
+  const re = /##Step\s*(\d+)[:\s]+(.+)/gi;
+  const headers: { index: number; stepNum: number; title: string }[] = [];
+  let m: RegExpExecArray | null;
 
-  const result: BriefingSection[] = [];
-
-  for (const def of sectionDefs) {
-    // ##제목 또는 **제목** 형식 모두 처리
-    const headerPattern = new RegExp(
-      `(?:##|\\*{1,2})\\s*${def.key}\\s*(?:\\*{1,2})?\\s*\\n([\\s\\S]*?)(?=(?:##|\\*{1,2})\\s*(?:이번 주|즉시 확인|조직 관리)|$)`,
-      'i'
-    );
-    const match = briefing.match(headerPattern);
-    const sectionText = match ? match[1].trim() : '';
-
-    const items = sectionText
-      .split('\n')
-      .map((line) => line.replace(/^[•\-\*]\s*/, '').trim())
-      .filter((line) => line.length > 0);
-
-    result.push({
-      title: def.key,
-      icon: def.icon,
-      items: items.length > 0 ? items : ['내용을 분석 중입니다.'],
-      color: def.color,
-      bgColor: def.bgColor,
-    });
+  while ((m = re.exec(briefing)) !== null) {
+    headers.push({ index: m.index, stepNum: parseInt(m[1]), title: m[2].trim() });
   }
 
-  // 파싱 실패 시 원문을 첫 번째 섹션에 그대로 표시
-  const hasContent = result.some((s) => s.items.some((i) => i !== '내용을 분석 중입니다.'));
-  if (!hasContent) {
-    const lines = briefing
+  for (let i = 0; i < headers.length; i++) {
+    const headerEnd = briefing.indexOf('\n', headers[i].index);
+    const contentStart = headerEnd >= 0 ? headerEnd + 1 : briefing.length;
+    const contentEnd = i + 1 < headers.length ? headers[i + 1].index : briefing.length;
+    const rawContent = briefing.slice(contentStart, contentEnd).trim();
+    const items = rawContent
+      .split('\n')
+      .map((l) => l.replace(/^[•\-\*]\s*/, '').trim())
+      .filter((l) => l.length > 0);
+
+    steps.push({ stepNumber: headers[i].stepNum, title: headers[i].title, items, rawContent });
+  }
+
+  // 파싱 실패 시 원문을 단일 스텝으로 표시
+  if (steps.length === 0) {
+    const items = briefing
       .split('\n')
       .map((l) => l.replace(/^[##•\-\*]\s*/, '').trim())
       .filter((l) => l.length > 0);
-    result[0].items = lines.slice(0, 5);
-    result[1].items = lines.slice(5, 8);
-    result[2].items = lines.slice(8, 11);
+    steps.push({ stepNumber: 1, title: '팀 종합 브리핑', items, rawContent: briefing });
   }
 
-  return result;
+  return steps;
+}
+
+const BADGE_COLORS: Record<string, string> = {
+  '🔵': 'bg-blue-100 text-blue-700',
+  '🟢': 'bg-green-100 text-green-700',
+  '🟡': 'bg-yellow-100 text-yellow-700',
+  '🔴': 'bg-red-100 text-red-700',
+};
+
+function parseNameBadges(text: string): { name: string; emoji: string; colorClass: string }[] {
+  const badges: { name: string; emoji: string; colorClass: string }[] = [];
+  const re = /([🔵🟢🟡🔴])\s*([가-힣a-zA-Z0-9]+)/gu;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    badges.push({
+      emoji: match[1],
+      name: match[2],
+      colorClass: BADGE_COLORS[match[1]] ?? 'bg-slate-100 text-slate-700',
+    });
+  }
+  return badges;
 }
 
 // ─── 개별 보고서 아코디언 아이템 ──────────────────────────────────────────────
@@ -348,7 +343,7 @@ export function ReportsPage() {
     }));
   }, [briefingData]);
 
-  const briefingSections = useMemo(() => {
+  const briefingSteps = useMemo(() => {
     if (!briefingData) return [];
     return parseBriefing(briefingData.briefing);
   }, [briefingData]);
@@ -631,32 +626,89 @@ export function ReportsPage() {
               </span>
             </div>
 
-            {/* 섹션 카드 3개 */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {briefingSections.map((section) => (
-                <div
-                  key={section.title}
-                  className={`rounded-2xl border p-5 ${section.bgColor}`}
-                >
-                  <div className={`flex items-center gap-2 mb-3 ${section.color}`}>
-                    {section.icon}
-                    <h3 className="text-sm font-black">{section.title}</h3>
+            {/* Step 1: 팀 전체 컨디션 스냅샷 */}
+            {briefingSteps[0] && (
+              <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-3 text-orange-600">
+                  <Activity size={18} />
+                  <h3 className="text-sm font-black">Step 1 · {briefingSteps[0].title}</h3>
+                </div>
+                <div className="space-y-1.5">
+                  {briefingSteps[0].items.map((item, idx) => (
+                    <p key={idx} className="text-sm text-slate-700 leading-relaxed">{item}</p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: 팀원 이름+상태 매트릭스 */}
+            {briefingSteps[1] && (
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center gap-2 mb-3 text-slate-600">
+                  <Grid3X3 size={18} />
+                  <h3 className="text-sm font-black text-slate-700">Step 2 · {briefingSteps[1].title}</h3>
+                </div>
+                {(() => {
+                  const badges = parseNameBadges(briefingSteps[1].rawContent);
+                  return badges.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {badges.map((badge, idx) => (
+                        <span
+                          key={idx}
+                          className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold ${badge.colorClass}`}
+                        >
+                          {badge.emoji} {badge.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {briefingSteps[1].items.map((item, idx) => (
+                        <p key={idx} className="text-sm text-slate-700 leading-relaxed">{item}</p>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Step 3 & Step 4: 두 컬럼 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Step 3: 카테고리별 그룹 요약 */}
+              {briefingSteps[2] && (
+                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
+                  <div className="flex items-center gap-2 mb-3 text-blue-600">
+                    <Layers size={18} />
+                    <h3 className="text-sm font-black">Step 3 · {briefingSteps[2].title}</h3>
                   </div>
                   <ul className="space-y-2">
-                    {section.items.map((item, idx) => (
+                    {briefingSteps[2].items.map((item, idx) => (
                       <li key={idx} className="flex items-start gap-2">
-                        <span
-                          className="mt-1 shrink-0 text-base leading-none"
-                          style={{ color: BRAND }}
-                        >
-                          •
-                        </span>
+                        <span className="mt-1 shrink-0 text-blue-400 text-base leading-none">•</span>
                         <span className="text-sm text-slate-700 leading-relaxed">{item}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
-              ))}
+              )}
+
+              {/* Step 4: Critical Path */}
+              {briefingSteps[3] && (
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
+                  <div className="flex items-center gap-2 mb-3 text-red-600">
+                    <Zap size={18} />
+                    <h3 className="text-sm font-black">Step 4 · {briefingSteps[3].title}</h3>
+                  </div>
+                  <ul className="space-y-2">
+                    {briefingSteps[3].items.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <AlertTriangle size={14} className="mt-0.5 shrink-0 text-red-400" />
+                        <span className="text-sm text-slate-700 leading-relaxed">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             {/* ── 통계 차트 ─────────────────────────────────────────────── */}
