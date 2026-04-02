@@ -36,6 +36,19 @@ export interface ChangePasswordRequest {
   confirm_new_password: string;
 }
 
+export interface PresenceUser {
+  id: string;
+  name: string;
+  email: string;
+  department: string | null;
+  position: string | null;
+  nicname: string | null;
+  picture: string | null;
+  last_login_at: string | null;   // ISO 8601
+  last_logout_at: string | null;  // ISO 8601
+  is_online: boolean;             // 서버에서 계산: last_login_at > last_logout_at
+}
+
 export const DEPARTMENT_OPTIONS = ['ERP1팀', 'ERP2팀', 'ERP3팀', 'ERP4팀'] as const;
 export const POSITION_OPTIONS = ['임원', '팀장', '매니저'] as const;
 

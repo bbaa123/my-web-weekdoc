@@ -2,6 +2,7 @@
 Login Repository - DB 접근 계층
 """
 
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import select
@@ -38,4 +39,16 @@ class LoginRepository:
         login = await self.get_by_id(login_id)
         if login:
             login.password_hash = new_password
+            await self.db.commit()
+
+    async def update_last_login(self, login_id: str) -> None:
+        login = await self.get_by_id(login_id)
+        if login:
+            login.last_login_at = datetime.now(timezone.utc)
+            await self.db.commit()
+
+    async def update_last_logout(self, login_id: str) -> None:
+        login = await self.get_by_id(login_id)
+        if login:
+            login.last_logout_at = datetime.now(timezone.utc)
             await self.db.commit()
