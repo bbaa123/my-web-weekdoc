@@ -6,7 +6,7 @@
  * - 하단: 개별 보고서 아코디언 (접이식)
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bot,
@@ -21,6 +21,7 @@ import {
   Zap,
   Loader2,
   Users,
+  FileDown,
 } from 'lucide-react';
 import { useAuthStore } from '@/core/store/useAuthStore';
 import { toast } from '@/core/utils/toast';
@@ -240,6 +241,9 @@ export function ReportsPage() {
   const [briefingData, setBriefingData] = useState<AICenterBriefingResponse | null>(null);
   const [loadingBriefing, setLoadingBriefing] = useState(false);
   const [briefingError, setBriefingError] = useState<string | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
+
+  const briefingRef = useRef<HTMLDivElement>(null);
 
   // 개별 보고서 섹션 표시 여부
   const [showDetails, setShowDetails] = useState(false);
@@ -307,6 +311,60 @@ export function ReportsPage() {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleExportPdf = async () => {
+    if (!briefingRef.current) return;
+    setExportingPdf(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const jsPDF = (await import('jspdf')).jsPDF;
+
+      const canvas = await html2canvas(briefingRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const imgW = pageW - margin * 2;
+      const imgH = (canvas.height * imgW) / canvas.width;
+
+      let y = margin;
+      let remaining = imgH;
+
+      while (remaining > 0) {
+        const sliceH = Math.min(remaining, pageH - margin * 2);
+        const srcY = (imgH - remaining) * (canvas.height / imgH);
+        const srcH = sliceH * (canvas.height / imgH);
+
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = srcH;
+        const ctx = sliceCanvas.getContext('2d')!;
+        ctx.drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+
+        pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, y, imgW, sliceH);
+        remaining -= sliceH;
+        if (remaining > 0) {
+          pdf.addPage();
+          y = margin;
+        }
+      }
+
+      const fileName = `브리핑_${selectedDeptName}_${filterYear}${filterMonth}_${filterWeek}.pdf`;
+      pdf.save(fileName);
+    } catch {
+      toast.error('PDF 내보내기에 실패했습니다.');
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   // ── 차트 데이터 ────────────────────────────────────────────────────────────
@@ -562,7 +620,7 @@ export function ReportsPage() {
         )}
 
         {briefingData && !loadingBriefing && (
-          <div className="space-y-4">
+          <div ref={briefingRef} className="space-y-4">
             {/* 브리핑 헤더 */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -585,12 +643,26 @@ export function ReportsPage() {
                   </p>
                 </div>
               </div>
-              <span
-                className="text-xs font-bold px-3 py-1 rounded-full"
-                style={{ backgroundColor: `${BRAND}15`, color: BRAND }}
-              >
-                AI 생성
-              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-xs font-bold px-3 py-1 rounded-full"
+                  style={{ backgroundColor: `${BRAND}15`, color: BRAND }}
+                >
+                  AI 생성
+                </span>
+                <button
+                  onClick={handleExportPdf}
+                  disabled={exportingPdf}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+                >
+                  {exportingPdf ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <FileDown size={13} />
+                  )}
+                  {exportingPdf ? 'PDF 생성 중...' : 'Export PDF'}
+                </button>
+              </div>
             </div>
 
             {/* Step 1: 팀 전체 컨디션 스냅샷 */}
