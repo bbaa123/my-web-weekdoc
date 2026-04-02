@@ -40,11 +40,15 @@ class LoginService:
         if not login or login.password_hash != password:
             raise ValueError("아이디 또는 비밀번호가 올바르지 않습니다.")
 
+        await self.repo.update_last_login(login_id)
         token = create_access_token({"sub": login.id, "type": "login"})
         return LoginTokenResponse(
             access_token=token,
             user=LoginUserResponse.model_validate(login),
         )
+
+    async def logout(self, login_id: str) -> None:
+        await self.repo.update_last_logout(login_id)
 
     async def change_password(self, login_id: str, data: ChangePasswordRequest) -> None:
         if data.new_password != data.confirm_new_password:

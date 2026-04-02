@@ -10,7 +10,13 @@ from server.app.domain.auth.repositories.user_repository import UserRepository
 from server.app.domain.auth.schemas.user_schemas import UserProfileResponse, UserUpsertRequest
 from server.app.domain.login.models.login import Login
 from server.app.domain.login.repositories.login_repository import LoginRepository
-from server.app.domain.login.schemas.login_schemas import ChangePasswordRequest, LoginCreate, LoginRequest, LoginTokenResponse
+from server.app.domain.login.schemas.login_schemas import (
+    ChangePasswordRequest,
+    LoginCreate,
+    LoginRequest,
+    LoginTokenResponse,
+    PresenceUserResponse,
+)
 from server.app.domain.login.service import LoginService
 
 router = APIRouter(prefix="/login-auth", tags=["login-auth"])
@@ -47,6 +53,52 @@ async def login(
         return await service.login(data.id, data.password)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="로그아웃 (last_logout_at 기록)",
+)
+async def logout(
+    current_login: Login = Depends(get_current_login_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> None:
+    service = LoginService(db)
+    await service.logout(current_login.id)
+
+
+@router.get(
+    "/presence",
+    response_model=list[PresenceUserResponse],
+    summary="전체 팀원 접속 현황 조회 (인증 사용자 전용)",
+)
+async def get_presence(
+    current_login: Login = Depends(get_current_login_user),
+    db: AsyncSession = Depends(get_database_session),
+) -> list[PresenceUserResponse]:
+    from server.app.domain.auth.repositories.user_repository import UserRepository as _UserRepo
+
+    login_repo = LoginRepository(db)
+    user_repo = _UserRepo(db)
+    logins = await login_repo.list_all()
+    result: list[PresenceUserResponse] = []
+    for login_user in logins:
+        profile = await user_repo.get_by_id(login_user.id)
+        result.append(
+            PresenceUserResponse(
+                id=login_user.id,
+                name=profile.name if profile else login_user.name,
+                email=login_user.email,
+                department=profile.department if profile else None,
+                position=profile.position if profile else None,
+                nicname=profile.nicname if profile else None,
+                picture=profile.picture if profile else None,
+                last_login_at=login_user.last_login_at,
+                last_logout_at=login_user.last_logout_at,
+            )
+        )
+    return result
 
 
 @router.get(
