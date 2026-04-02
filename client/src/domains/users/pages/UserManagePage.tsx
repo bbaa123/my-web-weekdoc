@@ -143,6 +143,9 @@ export function UserManagePage() {
             <span className="text-slate-900 border-b-2 pb-0.5" style={{ borderColor: BRAND }}>
               Users
             </span>
+            <button onClick={() => navigate('/presence')} className="hover:text-slate-700 cursor-pointer">
+              Presence
+            </button>
           </nav>
 
           {/* 사용자 + 로그아웃 */}

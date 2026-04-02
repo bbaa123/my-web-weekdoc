@@ -1213,6 +1213,12 @@ export function WeeklySyncPage() {
             >
               Users
             </button>
+            <button
+              onClick={() => navigate('/presence')}
+              className="hover:text-slate-700 cursor-pointer"
+            >
+              Presence
+            </button>
           </nav>
 
           <div className="flex items-center gap-3">

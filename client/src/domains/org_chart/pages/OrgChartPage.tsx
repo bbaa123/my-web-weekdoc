@@ -496,6 +496,9 @@ export function OrgChartPage() {
             <button onClick={() => navigate('/user-manage')} className="hover:text-slate-700 transition-colors">
               Users
             </button>
+            <button onClick={() => navigate('/presence')} className="hover:text-slate-700 transition-colors">
+              Presence
+            </button>
           </nav>
 
           {/* 사용자 정보 + 로그아웃 */}

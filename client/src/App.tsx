@@ -15,6 +15,7 @@ import { OrgChartPage } from './domains/org_chart/pages/OrgChartPage';
 import { DepartmentManagePage } from './domains/departments/pages/DepartmentManagePage';
 import { UserManagePage } from './domains/users/pages/UserManagePage';
 import { MyPage } from './domains/users/pages/MyPage';
+import { PresencePage } from './domains/users/pages/PresencePage';
 import { PrivateRoute } from './core/auth/PrivateRoute';
 
 interface DocumentConfig {
@@ -162,6 +163,14 @@ function App() {
           element={
             <PrivateRoute>
               <UserManagePage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/presence"
+          element={
+            <PrivateRoute>
+              <PresencePage />
             </PrivateRoute>
           }
         />

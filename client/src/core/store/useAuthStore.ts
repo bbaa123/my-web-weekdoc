@@ -31,7 +31,7 @@ interface AuthState {
   loginById: (loginId: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   registerLoginUser: (data: LoginRegisterData) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => void;
   setUser: (user: User) => void;
 }
 
@@ -152,12 +152,8 @@ export const useAuthStore = create<AuthState>()(
         set({ user: mappedUser, token: access_token, isAuthenticated: true });
       },
 
-      logout: async () => {
-        try {
-          await callLogoutApi();
-        } catch {
-          // 로그아웃 API 실패해도 클라이언트 상태는 초기화
-        }
+      logout: () => {
+        callLogoutApi(); // keepalive fetch: await 없이도 요청 완료 보장
         set({ user: null, token: null, isAuthenticated: false });
       },
 

@@ -195,6 +195,9 @@ export function DepartmentManagePage() {
             <button onClick={() => navigate('/user-manage')} className="hover:text-slate-700 cursor-pointer">
               Users
             </button>
+            <button onClick={() => navigate('/presence')} className="hover:text-slate-700 cursor-pointer">
+              Presence
+            </button>
           </nav>
 
           {/* 사용자 + 로그아웃 */}
