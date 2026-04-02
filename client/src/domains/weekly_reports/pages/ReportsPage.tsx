@@ -480,7 +480,7 @@ export function ReportsPage() {
           <div>
             <h1 className="text-2xl font-black text-slate-900">주간 AI 리포트</h1>
             <p className="text-sm text-slate-500 mt-1">
-              팀원들의 주간보고를 AI가 종합 분석하여 브리핑을 생성합니다
+              주간보고를 AI가 종합 분석하여 브리핑을 생성
             </p>
           </div>
           <div className="flex items-center gap-2 text-sm text-slate-500">

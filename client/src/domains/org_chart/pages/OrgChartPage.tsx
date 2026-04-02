@@ -538,7 +538,7 @@ export function OrgChartPage() {
           <div>
             <h1 className="text-2xl font-black text-slate-900">조직도</h1>
             <p className="text-sm text-slate-400 mt-0.5">
-              부서를 클릭하면 구성원과 보고서 현황을 확인할 수 있습니다
+              부서를 클릭하면 구성원 확인 가능
             </p>
           </div>
           {/* 요약 뱃지 */}
