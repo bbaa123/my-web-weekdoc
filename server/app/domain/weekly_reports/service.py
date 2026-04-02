@@ -56,13 +56,21 @@ class WeeklyReportService:
     async def update_report(
         self, no: int, current_login: Login, data: WeeklyReportUpdate
     ) -> WeeklyReportResponse:
-        """주간보고 수정 (본인 또는 관리자만 가능)"""
+        """주간보고 수정 (본인 또는 관리자만 가능).
+        progress=100 또는 status='완료'가 되면 부모 보고서를 재귀적으로 완료 처리.
+        """
         report = await self.repo.get_by_no(no)
         if not report:
             raise HTTPException(status_code=404, detail="Report not found")
         if not current_login.admin_yn and report.id != current_login.id:
             raise HTTPException(status_code=403, detail="Forbidden")
         updated = await self.repo.update(report, data)
+
+        # 완료 조건 충족 시 부모 체인 재귀 완료 처리
+        is_completed = (updated.progress == 100) or (updated.status == "완료")
+        if is_completed and updated.parent_id is not None:
+            await self.repo.cascade_complete_to_ancestors(no)
+
         await self.db.commit()
         return WeeklyReportResponse.model_validate(updated)
 

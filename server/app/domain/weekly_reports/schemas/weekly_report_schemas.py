@@ -29,6 +29,7 @@ class WeeklyReportResponse(BaseModel):
     feedback: Optional[str] = None
     summary: Optional[str] = None
     due_date: Optional[date] = None
+    parent_id: Optional[int] = None
 
     model_config = {"from_attributes": True}
 
@@ -49,6 +50,7 @@ class WeeklyReportCreate(BaseModel):
     issues: Optional[str] = None
     status: Optional[str] = None
     due_date: Optional[date] = None
+    parent_id: Optional[int] = None
 
 
 class WeeklyReportUpdate(BaseModel):

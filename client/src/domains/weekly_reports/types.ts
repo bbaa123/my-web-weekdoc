@@ -17,6 +17,7 @@ export interface WeeklyReport {
   feedback: string | null;
   summary: string | null;
   due_date: string | null;
+  parent_id: number | null;
 }
 
 export interface AISummarizeResponse {
@@ -46,6 +47,7 @@ export interface WeeklyReportCreate {
   issues: string | null;
   status: string | null;
   due_date: string | null;
+  parent_id?: number | null;
 }
 
 export interface WeeklyReportUpdate {

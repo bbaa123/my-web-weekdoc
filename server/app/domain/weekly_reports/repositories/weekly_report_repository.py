@@ -56,11 +56,34 @@ class WeeklyReportRepository:
             priority=data.priority,
             issues=data.issues,
             status=data.status,
+            parent_id=data.parent_id,
         )
         self.db.add(report)
         await self.db.flush()
         await self.db.refresh(report)
         return report
+
+    async def cascade_complete_to_ancestors(self, no: int) -> None:
+        """
+        주어진 보고서의 parent_id를 따라 조상 보고서들을 재귀적으로 완료(100%) 처리.
+        이미 완료된 보고서를 만나면 중단.
+        """
+        current_no: int | None = no
+        visited: set[int] = set()
+        while current_no is not None:
+            if current_no in visited:
+                break  # 순환 참조 방지
+            visited.add(current_no)
+            current = await self.get_by_no(current_no)
+            if current is None or current.parent_id is None:
+                break
+            parent = await self.get_by_no(current.parent_id)
+            if parent is None or parent.progress >= 100:
+                break
+            parent.progress = 100
+            parent.status = "완료"
+            await self.db.flush()
+            current_no = parent.weekly_reports_no
 
     async def update(self, report: WeeklyReport, data: WeeklyReportUpdate) -> WeeklyReport:
         """주간보고 수정"""

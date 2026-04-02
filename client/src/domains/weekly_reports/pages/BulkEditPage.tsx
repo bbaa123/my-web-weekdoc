@@ -38,6 +38,7 @@ interface BulkRow {
   _key: string;
   _fromLastWeek?: boolean;
   _isDirty?: boolean;
+  _parentId?: number;      // 이월된 행의 원본 weekly_reports_no
   weekly_reports_no?: number;
   work_type: string;
   company: string;
@@ -232,6 +233,8 @@ export function BulkEditPage() {
   const [saving, setSaving] = useState(false);
   const [loadingCurrentWeek, setLoadingCurrentWeek] = useState(false);
   const [loadingLastWeek, setLoadingLastWeek] = useState(false);
+  // 완료 처리 시 연결된 원본 업무 안내 다이얼로그
+  const [completeConfirm, setCompleteConfirm] = useState<{ rowKey: string } | null>(null);
 
   // 셀 ref 맵: rowKey + ':' + colName → ref
   const cellRefs = useRef<Map<string, HTMLElement | null>>(new Map());
@@ -256,6 +259,8 @@ export function BulkEditPage() {
           const loaded: BulkRow[] = weekReports.map((r) => ({
             _key: Math.random().toString(36).slice(2),
             _isDirty: false,
+            _parentId: r.parent_id ?? undefined,
+            _fromLastWeek: r.parent_id != null,
             weekly_reports_no: r.weekly_reports_no,
             work_type: r.work_type ?? '',
             company: r.company ?? '',
@@ -342,6 +347,10 @@ export function BulkEditPage() {
         // 상태가 '완료'면 진행률 자동 100%
         if (field === 'status' && value === '완료') {
           updated.progress = 100;
+          // 원본 업무가 있는 이월 행이면 안내 다이얼로그 표시
+          if (r._parentId != null) {
+            setCompleteConfirm({ rowKey: key });
+          }
         }
         // 기존 행(weekly_reports_no 있음)은 수정 시 dirty 표시
         if (r.weekly_reports_no) {
@@ -435,6 +444,7 @@ export function BulkEditPage() {
           priority: null,
           status: r.status || null,
           due_date: r.due_date || null,
+          parent_id: r._parentId ?? null,
         }));
         promises.push(createWeeklyReports(payload));
       }
@@ -499,7 +509,8 @@ export function BulkEditPage() {
       const imported: BulkRow[] = incomplete.map((r) => ({
         _key: Math.random().toString(36).slice(2),
         _fromLastWeek: true,
-        weekly_reports_no: r.weekly_reports_no,
+        _parentId: r.weekly_reports_no,   // 원본 ID 연결 (완료 시 cascade 처리)
+        // weekly_reports_no 미설정 → 저장 시 신규 INSERT
         work_type: r.work_type ?? '',
         company: r.company ?? '',
         project_name: r.project_name ?? '',
@@ -542,6 +553,41 @@ export function BulkEditPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
+      {/* ── 완료 처리 확인 다이얼로그 ───────────────────────────────────────── */}
+      {completeConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-6 max-w-sm w-full mx-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                <span className="text-lg">✅</span>
+              </div>
+              <h3 className="text-base font-black text-slate-900">완료 처리 안내</h3>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed mb-5">
+              이 업무는 <span className="font-semibold text-amber-600">이전 주에서 이월된 업무</span>입니다.
+              <br />
+              완료로 처리하면{' '}
+              <span className="font-semibold text-slate-800">연결된 과거 업무들도 함께 완료 처리됩니다.</span>
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCompleteConfirm(null)}
+                className="flex-1 py-2 text-sm font-semibold text-slate-500 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => setCompleteConfirm(null)}
+                className="flex-1 py-2 text-sm font-bold text-white rounded-xl hover:opacity-90 transition-all"
+                style={{ backgroundColor: BRAND }}
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── 고정 헤더 ──────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
         <div
@@ -935,6 +981,18 @@ export function BulkEditPage() {
                           isInvalid ? 'ring-1 ring-inset ring-red-300 rounded-md' : ''
                         }`}
                       >
+                        {row._fromLastWeek && (
+                          <div className="mb-1 flex items-center gap-1">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200">
+                              🔄 이전 주에서 이월됨
+                            </span>
+                            {row._parentId && (
+                              <span className="text-[10px] text-slate-300">
+                                (원본 #{row._parentId})
+                              </span>
+                            )}
+                          </div>
+                        )}
                         <AutoTextarea
                           textareaRef={(el) => {
                             if (el)

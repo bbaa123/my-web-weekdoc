@@ -58,3 +58,9 @@ class WeeklyReport(Base):
     feedback: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     due_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("weekly_reports.weekly_reports_no", name="fk_weekly_reports_parent_id", ondelete="SET NULL"),
+        nullable=True,
+        default=None,
+    )
