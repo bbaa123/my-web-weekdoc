@@ -987,170 +987,139 @@ export function WeeklySyncPage() {
     .join(' ');
 
   // ─── PDF 내보내기 ─────────────────────────────────────────────────────────
-  const handleExportPdf = async () => {
+  const handleExportPdf = () => {
     if (isPdfGenerating || filtered.length === 0) return;
     setIsPdfGenerating(true);
-    try {
-      const [{ jsPDF }, { default: html2canvas }] = await Promise.all([
-        import('jspdf'),
-        import('html2canvas'),
-      ]);
 
-      const esc = (s: string | null | undefined) =>
-        (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const esc = (s: string | null | undefined) =>
+      (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-      const title = `주간 업무 보고서${periodLabel ? ` (${periodLabel})` : ''}`;
-      const tabLabel =
-        activeTab === 'my' ? '내 보고서 (My Reports)' : '팀 보고서 (Team Reports)';
-      const today = new Date().toLocaleDateString('ko-KR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
+    const title = `주간 업무 보고서${periodLabel ? ` (${periodLabel})` : ''}`;
+    const tabLabel =
+      activeTab === 'my' ? '내 보고서 (My Reports)' : '팀 보고서 (Team Reports)';
+    const today = new Date().toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
 
-      const rowsHtml = filtered
-        .map((r, i) => {
-          const teamRow = activeTab === 'team' ? (r as TeamWeeklyReport) : null;
-          const displayName = teamRow ? teamRow.author_name || r.id : r.id;
-          const initials = displayName.slice(0, 2).toUpperCase();
-          const progress = r.progress ?? 0;
-          const rowBg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+    const rowsHtml = filtered
+      .map((r, i) => {
+        const teamRow = activeTab === 'team' ? (r as TeamWeeklyReport) : null;
+        const displayName = teamRow ? teamRow.author_name || r.id : r.id;
+        const initials = displayName.slice(0, 2).toUpperCase();
+        const progress = r.progress ?? 0;
+        const rowBg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
 
-          let statusBg = '#f1f5f9',
-            statusColor = '#64748b',
-            statusLabel = r.status ?? '-';
-          if (r.status === '완료' || r.status === 'COMPLETED') {
-            statusBg = '#d1fae5'; statusColor = '#065f46'; statusLabel = '완료';
-          } else if (r.status === '진행' || r.status === 'IN PROGRESS' || r.status === 'PENDING' || r.status === '진행중' || r.status === '대기') {
-            statusBg = '#dbeafe'; statusColor = '#1d4ed8'; statusLabel = '진행';
-          } else if (r.status === '중단' || r.status === 'DELAYED' || r.status === '지연' || r.status === '보류' || r.status === '취소') {
-            statusBg = '#fee2e2'; statusColor = '#dc2626'; statusLabel = '중단';
-          }
-
-          const barColor =
-            progress <= 30 ? '#ef4444' : progress <= 70 ? '#facc15' : '#10b981';
-
-          const memberTd = `
-            <td style="padding:10px 12px;vertical-align:middle;">
-              <div style="display:flex;align-items:center;gap:8px;">
-                <div style="width:28px;height:28px;border-radius:50%;background:#FF6B00;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${initials}</div>
-                <div>
-                  <div style="font-weight:600;color:#1e293b;font-size:12px;">${esc(displayName)}</div>
-                  ${r.company ? `<div style="font-size:10px;color:#94a3b8;">${esc(r.company)}</div>` : ''}
-                </div>
-              </div>
-            </td>`;
-
-          const deptTd = teamRow
-            ? `<td style="padding:10px 12px;vertical-align:middle;"><span style="font-size:11px;font-weight:600;padding:2px 8px;background:#f1f5f9;color:#475569;border-radius:9999px;">${esc(teamRow.department)}</span></td>`
-            : '';
-
-          return `
-            <tr style="background:${rowBg};border-bottom:1px solid #f1f5f9;">
-              ${memberTd}
-              ${deptTd}
-              <td style="padding:10px 12px;vertical-align:middle;color:#475569;font-size:12px;">${esc(r.work_type) || '-'}</td>
-              <td style="padding:10px 12px;vertical-align:middle;color:#475569;font-size:12px;max-width:200px;word-break:break-word;">${esc(r.this_week) || '-'}</td>
-              <td style="padding:10px 12px;vertical-align:middle;color:#475569;font-size:12px;max-width:200px;word-break:break-word;">${esc(r.next_week) || '-'}</td>
-              <td style="padding:10px 12px;vertical-align:middle;white-space:nowrap;">
-                ${r.status ? `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:9999px;background:${statusBg};color:${statusColor};">${statusLabel}</span>` : '<span style="font-size:11px;color:#94a3b8;">-</span>'}
-              </td>
-              <td style="padding:10px 12px;vertical-align:middle;min-width:90px;">
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <div style="flex:1;height:5px;background:#f1f5f9;border-radius:9999px;overflow:hidden;min-width:60px;">
-                    <div style="height:100%;width:${progress}%;background:${barColor};border-radius:9999px;"></div>
-                  </div>
-                  <span style="font-size:11px;font-weight:600;color:#475569;min-width:28px;text-align:right;">${progress}%</span>
-                </div>
-              </td>
-            </tr>`;
-        })
-        .join('');
-
-      const authorHeader =
-        activeTab === 'team'
-          ? `<th style="padding:10px 12px;text-align:left;font-weight:700;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;">Author</th>
-             <th style="padding:10px 12px;text-align:left;font-weight:700;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;">Department</th>`
-          : `<th style="padding:10px 12px;text-align:left;font-weight:700;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;">Member</th>`;
-
-      const thStyle =
-        'padding:10px 12px;text-align:left;font-weight:700;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.05em;';
-
-      const container = document.createElement('div');
-      container.style.cssText =
-        'position:fixed;left:-9999px;top:0;width:1100px;background:#fff;padding:40px 40px 48px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-sizing:border-box;';
-
-      container.innerHTML = `
-        <div style="margin-bottom:20px;padding-bottom:16px;border-bottom:3px solid #FF6B00;">
-          <h1 style="font-size:20px;font-weight:900;color:#FF6B00;margin:0 0 6px 0;letter-spacing:-.01em;">${esc(title)}</h1>
-          <p style="font-size:12px;color:#64748b;margin:0;">${esc(tabLabel)} &nbsp;|&nbsp; 생성일: ${today} &nbsp;|&nbsp; 총 ${filtered.length}건</p>
-        </div>
-        <table style="width:100%;border-collapse:collapse;font-size:12px;">
-          <thead>
-            <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
-              ${authorHeader}
-              <th style="${thStyle}white-space:nowrap;">Category</th>
-              <th style="${thStyle}">This Week's Achievements</th>
-              <th style="${thStyle}">Next Week's Plan</th>
-              <th style="${thStyle}white-space:nowrap;">상태</th>
-              <th style="${thStyle}white-space:nowrap;">진도율</th>
-            </tr>
-          </thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>`;
-
-      document.body.appendChild(container);
-
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-      });
-
-      document.body.removeChild(container);
-
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-      const printW = pageW - margin * 2;
-      const totalImgH = (canvas.height * printW) / canvas.width;
-      const availH = pageH - margin * 2;
-
-      if (totalImgH <= availH) {
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, margin, printW, totalImgH);
-      } else {
-        const pxPerMm = canvas.width / printW;
-        const slicePxMax = Math.floor(availH * pxPerMm);
-        let srcY = 0;
-        let isFirst = true;
-        while (srcY < canvas.height) {
-          if (!isFirst) pdf.addPage();
-          const slicePx = Math.min(slicePxMax, canvas.height - srcY);
-          const sliceMm = slicePx / pxPerMm;
-          const sc = document.createElement('canvas');
-          sc.width = canvas.width;
-          sc.height = slicePx;
-          sc.getContext('2d')?.drawImage(
-            canvas, 0, srcY, canvas.width, slicePx, 0, 0, canvas.width, slicePx
-          );
-          pdf.addImage(sc.toDataURL('image/png'), 'PNG', margin, margin, printW, sliceMm);
-          srcY += slicePx;
-          isFirst = false;
+        let statusBg = '#f1f5f9',
+          statusColor = '#64748b',
+          statusLabel = r.status ?? '-';
+        if (r.status === '완료' || r.status === 'COMPLETED') {
+          statusBg = '#d1fae5'; statusColor = '#065f46'; statusLabel = '완료';
+        } else if (r.status === '진행' || r.status === 'IN PROGRESS' || r.status === 'PENDING' || r.status === '진행중' || r.status === '대기') {
+          statusBg = '#dbeafe'; statusColor = '#1d4ed8'; statusLabel = '진행';
+        } else if (r.status === '중단' || r.status === 'DELAYED' || r.status === '지연' || r.status === '보류' || r.status === '취소') {
+          statusBg = '#fee2e2'; statusColor = '#dc2626'; statusLabel = '중단';
         }
-      }
 
-      const fileDateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const authorName = user.name || user.login_id || 'Unknown';
-      pdf.save(`Weekly_Report_${fileDateStr}_${authorName}.pdf`);
-      toast.success('PDF가 성공적으로 저장되었습니다.');
-    } catch (err) {
-      console.error('PDF export error:', err);
-      toast.error('PDF 생성에 실패했습니다. 다시 시도해 주세요.');
-    } finally {
-      setIsPdfGenerating(false);
+        const barColor =
+          progress <= 30 ? '#ef4444' : progress <= 70 ? '#facc15' : '#10b981';
+
+        const memberTd = `
+          <td style="padding:10px 12px;vertical-align:middle;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="width:28px;height:28px;border-radius:50%;background:#FF6B00;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${initials}</div>
+              <div>
+                <div style="font-weight:600;color:#1e293b;font-size:12px;">${esc(displayName)}</div>
+                ${r.company ? `<div style="font-size:10px;color:#94a3b8;">${esc(r.company)}</div>` : ''}
+              </div>
+            </div>
+          </td>`;
+
+        const deptTd = teamRow
+          ? `<td style="padding:10px 12px;vertical-align:middle;"><span style="font-size:11px;font-weight:600;padding:2px 8px;background:#f1f5f9;color:#475569;border-radius:9999px;">${esc(teamRow.department)}</span></td>`
+          : '';
+
+        return `
+          <tr style="background:${rowBg};border-bottom:1px solid #f1f5f9;">
+            ${memberTd}
+            ${deptTd}
+            <td style="padding:10px 12px;vertical-align:middle;color:#475569;font-size:12px;">${esc(r.work_type) || '-'}</td>
+            <td style="padding:10px 12px;vertical-align:middle;color:#475569;font-size:12px;max-width:200px;word-break:break-word;">${esc(r.this_week) || '-'}</td>
+            <td style="padding:10px 12px;vertical-align:middle;color:#475569;font-size:12px;max-width:200px;word-break:break-word;">${esc(r.next_week) || '-'}</td>
+            <td style="padding:10px 12px;vertical-align:middle;white-space:nowrap;">
+              ${r.status ? `<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:9999px;background:${statusBg};color:${statusColor};">${statusLabel}</span>` : '<span style="font-size:11px;color:#94a3b8;">-</span>'}
+            </td>
+            <td style="padding:10px 12px;vertical-align:middle;min-width:90px;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div style="flex:1;height:5px;background:#f1f5f9;border-radius:9999px;overflow:hidden;min-width:60px;">
+                  <div style="height:100%;width:${progress}%;background:${barColor};border-radius:9999px;"></div>
+                </div>
+                <span style="font-size:11px;font-weight:600;color:#475569;min-width:28px;text-align:right;">${progress}%</span>
+              </div>
+            </td>
+          </tr>`;
+      })
+      .join('');
+
+    const authorHeader =
+      activeTab === 'team'
+        ? `<th style="padding:10px 12px;text-align:left;font-weight:700;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;">Author</th>
+           <th style="padding:10px 12px;text-align:left;font-weight:700;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;">Department</th>`
+        : `<th style="padding:10px 12px;text-align:left;font-weight:700;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;">Member</th>`;
+
+    const thStyle =
+      'padding:10px 12px;text-align:left;font-weight:700;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.05em;';
+
+    const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>${esc(title)}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fff; padding: 32px; color: #1e293b; }
+    table { width: 100%; border-collapse: collapse; }
+    @media print {
+      body { padding: 0; }
+      @page { margin: 10mm; size: A4 landscape; }
     }
+  </style>
+</head>
+<body>
+  <div style="margin-bottom:20px;padding-bottom:16px;border-bottom:3px solid #FF6B00;">
+    <h1 style="font-size:20px;font-weight:900;color:#FF6B00;margin:0 0 6px 0;letter-spacing:-.01em;">${esc(title)}</h1>
+    <p style="font-size:12px;color:#64748b;margin:0;">${esc(tabLabel)} &nbsp;|&nbsp; 생성일: ${today} &nbsp;|&nbsp; 총 ${filtered.length}건</p>
+  </div>
+  <table>
+    <thead>
+      <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+        ${authorHeader}
+        <th style="${thStyle}white-space:nowrap;">Category</th>
+        <th style="${thStyle}">This Week's Achievements</th>
+        <th style="${thStyle}">Next Week's Plan</th>
+        <th style="${thStyle}white-space:nowrap;">상태</th>
+        <th style="${thStyle}white-space:nowrap;">진도율</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank', 'width=1200,height=900');
+    if (!win) {
+      toast.error('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.');
+      setIsPdfGenerating(false);
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+      win.print();
+      setIsPdfGenerating(false);
+    }, 500);
   };
 
   return (
