@@ -89,7 +89,7 @@ export function PresencePage() {
             <Activity size={20} style={{ color: BRAND }} />
           </div>
           <div>
-            <h1 className="text-xl font-black text-slate-900">접속 현황</h1>
+            <h1 className="text-xl font-black text-slate-900">접속현황</h1>
             <p className="text-sm text-slate-400">로그인/로그아웃 기록 기반 · 60초마다 자동 갱신</p>
           </div>
         </div>
